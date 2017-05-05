@@ -1,0 +1,30 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/yuriy/CLionProjects/wordsCount/main.cpp
+iostream
+-
+fstream
+-
+map
+-
+thread
+-
+vector
+-
+algorithm
+-
+set
+-
+mutex
+-
+chrono
+-
+atomic
+-
+
