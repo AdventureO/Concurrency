@@ -3,6 +3,10 @@ from time import time, process_time
 from string import punctuation
 from multiprocessing import Process, Manager
 
+"""
+Версія multiprocessing з Manager
+Працює повільно
+"""
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
@@ -22,19 +26,22 @@ def write_file(word_counter, file_name):
 class WordsCount(Process):
     lock = multiprocessing.Lock()
 
-    def __init__(self, words_list):
+    def __init__(self, words_list, b, e, word_counter):
         super().__init__()
+        self.word_counter = word_counter
         self.words_list = words_list
+        self.b = b
+        self.e = e
 
 
     def run(self):
 
         local_dict = {}
-        for word in self.words_list:
+        for word in self.words_list[self.b:self.e]:
             if word not in local_dict:
                 local_dict[word] = 1
             else:
-                local_dict[word] =+ 1
+                local_dict[word] += 1
 
         WordsCount.lock.acquire()
         try:
@@ -48,17 +55,17 @@ class WordsCount(Process):
             WordsCount.lock.release()
 
 
-
+processes_number = 2
 with Manager() as manager:
     word_counter = manager.dict()
     processes = []
-    input_list = read_file('text.txt')
-    avg = len(input_list) / 10
+    input_list = read_file('text1.txt')
+    avg = len(input_list) / processes_number
     last = 0
 
 
     while last < len(input_list):
-        processes.append(WordsCount(input_list[int(last):int(last + avg)]))
+        processes.append(WordsCount(input_list, int(last), int(last + avg), word_counter))
         last += avg
 
     start_time = time()

@@ -2,7 +2,9 @@ import threading
 import multiprocessing
 from time import time
 from string import punctuation
-
+"""
+Ще не додав Queue для multiprocessing
+"""
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
@@ -14,6 +16,9 @@ def read_file(file_name):
 #    return [word for line in open(file_name, 'r') for word in line.replace(',','').replace('\'','').\
 #        replace('.','').replace(';','').replace(':','').lower().split()]
 
+"""
+Цю функцію заберу
+"""
 def list_divider(list_of_words, parts):
     avg = len(list_of_words) / parts
     result = []
@@ -27,9 +32,13 @@ def list_divider(list_of_words, parts):
 
 def write_file(word_counter, file_name):
     with open(file_name, 'w') as file:
+
         for (word, occurance) in word_counter.items():
             file.write('{:15}{:3}\n'.format(word, occurance))
 
+"""
+Зміна між потоками та процесами
+"""
 while True:
     version = str(input("For threading enter - t, for multiprocessing enter - m: "))
     number_of_threads = int(input("Enter a number of threads/processes: "))
@@ -52,7 +61,7 @@ class WordsCount(parent_class):
     word_counter = {}
     lock = lock_type
     #lock = multiprocessing.Lock()
-    # lock = threading.Lock()
+    #lock = threading.Lock()
 
     def __init__(self, words_list):
         super().__init__()
@@ -65,7 +74,7 @@ class WordsCount(parent_class):
             if word not in local_dict:
                 local_dict[word] = 1
             else:
-                local_dict[word] =+ 1
+                local_dict[word] += 1
 
         with WordsCount.lock:
             for i in local_dict.keys():
@@ -90,6 +99,7 @@ class WordsCount(parent_class):
 
 
 
+
 input_list = list_divider(read_file('text1.txt'), number_of_threads)
 threads = [WordsCount(words_list) for words_list in input_list]
 
@@ -108,5 +118,6 @@ if version == "t":
 else:
     print('Got {} processes in {} seconds'.format(len(threads), work_time))
 
+print(WordsCount.word_counter)
 write_file(WordsCount.word_counter, 'result.txt')
 

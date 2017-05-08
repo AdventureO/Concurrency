@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor,  ProcessPoolExecutor
 from string import punctuation
 import time
 
+
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
@@ -28,7 +29,9 @@ def words_counting(words_list, word_counter):
 
     return local_dict
 
-
+"""
+Зміна між ThreadPoolExecutor та  ProcessPoolExecutor
+"""
 while True:
     version = str(input("For ThreadPoolExecutor enter - t, for  ProcessPoolExecutor enter - m: "))
     number_of_workers = int(input("Enter a number of max_workers: "))
@@ -41,8 +44,13 @@ while True:
         type = ProcessPoolExecutor
         break
 
+
 input_list = read_file('text1.txt')
 threads = 4
+
+"""
+ділення масиву слів на певну кількість - number_of_workers
+"""
 avg = len(input_list) / threads
 last = 0
 word_counter = {}

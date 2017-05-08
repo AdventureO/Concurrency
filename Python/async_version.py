@@ -1,8 +1,12 @@
 import asyncio
 import time
-import functools
 from string import punctuation
 
+"""
+8.05.17
+Виправив async
+Тепер працює правильно (я так думаю)
+"""
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
@@ -22,23 +26,22 @@ def list_divider(list_of_words, parts):
 
     return result
 
-async def words_counting(words_list, word_counter):
+def write_file(word_counter, file_name):
+    with open(file_name, 'w') as file:
+        for (word, occurance) in word_counter.items():
+            file.write('{:15}{:3}\n'.format(word, occurance))
+
+async def words_counting(words_list):
 
     local_dict = {}
     for word in words_list:
         if word not in local_dict:
             local_dict[word] = 1
         else:
-            local_dict[word] =+ 1
+            local_dict[word] += 1
 
-    for i in local_dict.keys():
-        if i in word_counter.keys():
-            word_counter[i] += local_dict[i]
+    return local_dict
 
-        else:
-            word_counter[i] = local_dict[i]
-
-    return word_counter
 
 
 def print_result(word_counter):
@@ -46,21 +49,27 @@ def print_result(word_counter):
         print('{:15} {:3}\n'.format(word, occurance))
 
 
-number_of_threads = 4
-input_list = list_divider(read_file('text1.txt'), number_of_threads)
+number_of_tasks = 4
+input_list = list_divider(read_file('text1.txt'), number_of_tasks)
 word_counter = {}
-
+tasks = [asyncio.ensure_future(words_counting(i)) for i in input_list]
 
 if __name__ == "__main__":
     start = time.time()
 
     loop = asyncio.get_event_loop()
-    temp_futures = {asyncio.ensure_future(words_counting(part_of_list, word_counter)): part_of_list for part_of_list in input_list}
-    for fr in temp_futures:
-        fr.add_done_callback(functools.partial(print_result, word_counter=temp_futures[fr]))
-
-    loop.run_until_complete(asyncio.wait(list(temp_futures.keys())))
-
+    loop.run_until_complete(asyncio.wait(tasks))
     loop.close()
-    print("Got {} temps in {} seconds".format(len(input_list), time.time() - start))
 
+    for i in tasks:
+        for word in i.result().keys():
+            if word in word_counter.keys():
+                word_counter[word] += i.result()[word]
+
+            else:
+                word_counter[word] = i.result()[word]
+
+    print("Got {} tasks in {} seconds".format(number_of_tasks, time.time() - start))
+
+
+write_file(word_counter, "result.txt")
