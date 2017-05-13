@@ -3,7 +3,6 @@ import time
 from string import punctuation
 
 """
-8.05.17
 Виправив async
 Тепер працює правильно (я так думаю)
 """
@@ -15,16 +14,6 @@ def read_file(file_name):
 
     return words_list
 
-def list_divider(list_of_words, parts):
-    avg = len(list_of_words) / parts
-    result = []
-    last = 0
-
-    while last < len(list_of_words):
-        result.append(list_of_words[int(last):int(last + avg)])
-        last += avg
-
-    return result
 
 def write_file(word_counter, file_name):
     with open(file_name, 'w') as file:
@@ -50,9 +39,16 @@ def print_result(word_counter):
 
 
 number_of_tasks = 4
-input_list = list_divider(read_file('text1.txt'), number_of_tasks)
+input_list = read_file('text1.txt')
 word_counter = {}
-tasks = [asyncio.ensure_future(words_counting(i)) for i in input_list]
+avg = len(input_list) / number_of_tasks
+last = 0
+tasks = []
+
+while last < len(input_list):
+    tasks.append(asyncio.ensure_future(words_counting(input_list[int(last):int(last + avg)])))
+    last += avg
+
 
 if __name__ == "__main__":
     start = time.time()

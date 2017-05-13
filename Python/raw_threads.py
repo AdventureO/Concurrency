@@ -2,9 +2,7 @@ import threading
 import multiprocessing
 from time import time
 from string import punctuation
-"""
-Ще не додав Queue для multiprocessing
-"""
+
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
@@ -16,19 +14,6 @@ def read_file(file_name):
 #    return [word for line in open(file_name, 'r') for word in line.replace(',','').replace('\'','').\
 #        replace('.','').replace(';','').replace(':','').lower().split()]
 
-"""
-Цю функцію заберу
-"""
-def list_divider(list_of_words, parts):
-    avg = len(list_of_words) / parts
-    result = []
-    last = 0
-
-    while last < len(list_of_words):
-        result.append(list_of_words[int(last):int(last + avg)])
-        last += avg
-
-    return result
 
 def write_file(word_counter, file_name):
     with open(file_name, 'w') as file:
@@ -83,25 +68,17 @@ class WordsCount(parent_class):
 
                 else:
                     WordsCount.word_counter[i] = local_dict[i]
-        """
-        WordsCount.lock.acquire()
-        try:
-            for i in local_dict.keys():
-                if i in WordsCount.word_counter.keys():
-                    WordsCount.word_counter[i] += local_dict[i]
-
-                else:
-                    WordsCount.word_counter[i] = local_dict[i]
-        finally:
-            WordsCount.lock.release()
-        """
 
 
+input_list = read_file('text1.txt')
+threads = []
 
+avg = len(input_list) / number_of_threads
+last = 0
 
-
-input_list = list_divider(read_file('text1.txt'), number_of_threads)
-threads = [WordsCount(words_list) for words_list in input_list]
+while last < len(input_list):
+    threads.append(WordsCount(input_list[int(last):int(last + avg)]))
+    last += avg
 
 start_time = time()
 
