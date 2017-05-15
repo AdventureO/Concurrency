@@ -1,9 +1,11 @@
 from time import time
 from string import punctuation
+import os
+import multiprocessing
 from multiprocessing import Process, Queue
 
 """
-Версія multiprocessing з Queue
+multiprocessing with Queue
 
 """
 def read_file(file_name):
@@ -23,8 +25,6 @@ def write_file(word_counter, file_name):
 
 
 class WordsCount(Process):
-    #lock = multiprocessing.Lock()
-
     def __init__(self, words_list, result_queue):
         super().__init__()
         self.words_list = words_list
@@ -33,19 +33,26 @@ class WordsCount(Process):
 
     def run(self):
 
+        #lock = multiprocessing.Lock()
         local_dict = {}
+        i = 0
         for word in self.words_list:
+            #i += 1
+            #if(i%1000 and i>0):
+            #   print(os.getpid())
             if word not in local_dict:
                 local_dict[word] = 1
             else:
                 local_dict[word] += 1
 
+
         self.result_queue.put(local_dict)
+        print("Added: ", os.getpid())
 
 
 
 
-processes_number = 10
+processes_number = 4
 if __name__ == '__main__':
     word_counter = {}
     result_queue = Queue()
@@ -64,19 +71,25 @@ if __name__ == '__main__':
     for process in processes:
         process.start()
 
+    while True:
+        running_processes = any(p.is_alive() for p in processes)
+        while not result_queue.empty():
+            local_dict = result_queue.get()
+            for i in local_dict.keys():
+                if i in word_counter.keys():
+                    word_counter[i] += local_dict[i]
+                else:
+                    word_counter[i] = local_dict[i]
+        if not running_processes:
+            break
+
     for process in processes:
         process.join()
 
-    while not result_queue.empty():
-        local_dict = result_queue.get()
-        for i in local_dict.keys():
-            if i in word_counter.keys():
-                word_counter[i] += local_dict[i]
 
-            else:
-                word_counter[i] = local_dict[i]
+    for process in processes:
+        print(process.is_alive())
 
-    result_queue.close()
 
     print(word_counter)
     print('Got {} threads in {} seconds'.format(len(processes), time() - start_time))
