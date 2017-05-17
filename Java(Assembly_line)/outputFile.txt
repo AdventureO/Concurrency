@@ -1,0 +1,4 @@
+Reading time: 0 s 768 ms
+Counting time: 2 s 320 ms
+Merging time: 2 s 420 ms
+Total execution time: 3 s 46 ms

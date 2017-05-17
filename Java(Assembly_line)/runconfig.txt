@@ -1,0 +1,3 @@
+4 (number of threads)
+5000 (block size)
+C:\Users\petro\IdeaProjects\Java(Assembly_line)\books1-14.txt (Enter the path to file to read from)
