@@ -1,2 +1,1 @@
 F:\Visual Studio Projects\Concurrency\Concurrency\bin\Debug\Concurrency.exe.config
-C:\Users\Romko\Desktop\Architecture Project UCU\Concurrency\C#\Concurrency\bin\Debug\Concurrency.exe.config
