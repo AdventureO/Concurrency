@@ -61,18 +61,19 @@ QList<int> lst_division(QStringList& data_lst, int threads) {
 }
 
 words_counter_t mapper(int num_start, int num_fin, QStringList& data_lst) {
+    words_counter_t words_local;
     for (int a=num_start; a<=num_fin; a++) {
-            ++words[data_lst[a]];
+            ++words_local[data_lst[a]]; //maye buty lokalnyy slovnyk
         }
-    return words;
+    return words_local;
 }
 
-//void reducer(words_counter_t &words, const words_counter_t& local_dictionary) {
-//    for(auto itr=local_dictionary.cbegin(); itr!=local_dictionary.cend(); ++itr)
-//        {
-//            words[itr.key()]+=itr.value();
-//        }
-//}
+void reducer(words_counter_t &words, const words_counter_t& local_dictionary) {
+    for(auto itr=local_dictionary.cbegin(); itr!=local_dictionary.cend(); ++itr)
+        {
+            words[itr.key()]+=itr.value();
+        }
+}
 
 int main(int argc, char *argv[])
 {
@@ -106,6 +107,7 @@ int main(int argc, char *argv[])
     cout << "PROGRAM DESCRIPTION/TRY " << argv[5]<<endl;
     cout << "TOTAL QUANTITY OF WORDS: " << words_lst.size() << endl;
 
+    QList<QFuture<words_counter_t>> future_list;
     auto creating_threads_start_time = get_current_time_fenced();
 
     int num_pointer = 0;
@@ -114,12 +116,19 @@ int main(int argc, char *argv[])
     for (int el=0; el<num_threads; el++) {
        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
        if (num_pointer+1 < num_lst.size()) {
-       QFuture<QMap<QString, int>> futur = QtConcurrent::run(mapper, num_lst[num_pointer], num_lst[num_pointer+1], words_lst);
-       result_futures = futur;
+       future_list << QtConcurrent::run(mapper, num_lst[num_pointer], num_lst[num_pointer+1], words_lst);
+       //tyt maye buty dodavannya v masyv futuriv
                num_pointer += 2;
        }
-
     }
+
+
+
+    for (size_t el=0; el<future_list.size(); el++) {
+        reducer(words, future_list[el]);
+        //words << future_list[el].result();
+    }
+
 
 
    //---------------------------------------------------------------
@@ -142,6 +151,7 @@ int main(int argc, char *argv[])
    cout << "THREADS CREATING TIME: " << creating_threads_time << " us " << endl;
    if( words_lst.size() != total_words )
    {
+       cout << "words" << words_lst.size() << " " << total_words << endl;
        cerr << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
 //   //---------------------------------------------------------------
