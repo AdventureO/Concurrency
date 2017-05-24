@@ -12,6 +12,10 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include <QFile>
 
+
+#COMMAND LINE ARGUMENTS:  5 /home/yaryna/Desktop/ sec.txt RESULT_FOR_TEST.txt 9 "LAST"
+
+
 using namespace std;
 
 using words_counter_t = QMap<QString, int>;
