@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.IO;
 
 namespace Concurrency
@@ -15,12 +16,24 @@ namespace Concurrency
         {
             Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
 
-            this.ReadDataInParallel(fileName, ref wordsCount);
+            Thread[] lels = new Thread[threadsQuantity];
+
+            for (int i = 0; i < threadsQuantity; i++)
+            {
+                lels[i] = new Thread(new ThreadStart(delegate { this.ReadDataFromFile(fileName, ref wordsCount); }));
+                lels[i].Start();
+            }
+
+            for (int i = 0; i < threadsQuantity; i++)
+            {
+                lels[i].Join();
+            }
 
             return wordsCount;
         }
 
-        public void ReadDataInParallel(string fileName, ref Dictionary<string, int> globalWordsCount, Action callbackAction = null)
+        private object _lockObject = new object();
+        private void ReadDataFromFile(string fileName, ref Dictionary<string, int> globalWordsCount, Action callbackAction = null)
         {
             Dictionary<string, int> localWordsCount = new Dictionary<string, int>(globalWordsCount.Count);
             int startingWordCount = 1;
@@ -61,15 +74,18 @@ namespace Concurrency
                 throw;
             }
 
-            foreach (string word in localWordsCount.Keys)
+            lock (this._lockObject)
             {
-                if (globalWordsCount.ContainsKey(word))
+                foreach (string word in localWordsCount.Keys)
                 {
-                    globalWordsCount[word] += localWordsCount[word];
-                }
-                else
-                {
-                    globalWordsCount.Add(word, localWordsCount[word]);
+                    if (globalWordsCount.ContainsKey(word))
+                    {
+                        globalWordsCount[word] += localWordsCount[word];
+                    }
+                    else
+                    {
+                        globalWordsCount.Add(word, localWordsCount[word]);
+                    }
                 }
             }
 

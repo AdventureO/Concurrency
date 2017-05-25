@@ -14,14 +14,7 @@ namespace Concurrency
         {
             TextDataController textDataController = new TextDataController();
 
-            Dictionary<string, int> wordsCount = new Dictionary<string, int>(TextDataController.AVERAGEWORDSCOUNT);
-
-            textDataController.ReadDataInParallel("Words Processing Data.txt", ref wordsCount);
-
-            foreach (var item in wordsCount)
-            {
-                Console.WriteLine(item);
-            }
+            Dictionary<string, int> wordsCount = textDataController.GetWordsCountInParallel("Words Processing Data.txt", 4);
 
             Console.WriteLine(wordsCount.Keys.Count);
 
