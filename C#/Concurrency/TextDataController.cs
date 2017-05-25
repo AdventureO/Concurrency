@@ -18,11 +18,11 @@ namespace Concurrency
 
             Thread[] lels = new Thread[threadsQuantity];
 
-            int fileDataChunckIndexStep = File.ReadLines(fileName).Count() / threadsQuantity;
+            int fileDataChunkIndexStep = File.ReadLines(fileName).Count() / threadsQuantity;
 
             for (int i = 0; i < threadsQuantity; i++)
             {
-                lels[i] = new Thread(new ThreadStart(delegate { this.ReadDataFromFileInParallel(fileName, ref wordsCount, fileDataChunckIndexStep * i); }));
+                lels[i] = new Thread(new ThreadStart(delegate { this.ReadDataFromFileInParallel(fileName, ref wordsCount, fileDataChunkIndexStep * i); }));
                 lels[i].Start();
             }
 
