@@ -11,9 +11,10 @@
 #include "timing_v1.hpp"
 #include <QtConcurrent/QtConcurrentRun>
 #include <QFile>
+#include <QCoreApplication>
 
 
-#COMMAND LINE ARGUMENTS:  5 /home/yaryna/Desktop/ sec.txt RESULT_FOR_TEST.txt 9 "LAST"
+//COMMAND LINE ARGUMENTS:  5 /home/yaryna/Desktop/ sec.txt RESULT_FOR_TEST.txt 9 "LAST"
 
 
 using namespace std;
@@ -84,6 +85,7 @@ int main(int argc, char *argv[])
    // ----------------------------------------------
    // reading from command promt
 
+    QCoreApplication app(argc, argv);
 
     int num_threads;
     sscanf(argv[1], "%d", &num_threads);
@@ -121,7 +123,6 @@ int main(int argc, char *argv[])
        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
        if (num_pointer+1 < num_lst.size()) {
        future_list << QtConcurrent::run(mapper, num_lst[num_pointer], num_lst[num_pointer+1], words_lst);
-       //tyt maye buty dodavannya v masyv futuriv
                num_pointer += 2;
        }
     }
