@@ -17,19 +17,25 @@ using namespace std;
 
 QQueue<QList<QString> > d;
 QWaitCondition cv;
+QWaitCondition cv1;
 QMutex mux;
+QMutex mux1;
+QMutex mux2;
 atomic<bool> done = { false };
+atomic<bool> done_count = { false };
+
 
 using words_counter_t = QMap<QString, int>;
 words_counter_t words;
 QQueue<words_counter_t> map_q;
 
-void reducer(words_counter_t& words, const words_counter_t& local_dictionary)
-{
-    for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
-        words[itr.key()] += itr.value();
-    }
-}
+
+
+
+//void reducer(words_counter_t& words, const words_counter_t& local_dictionary)
+//{
+
+//}
 
 class ReadingThread : public QThread { //appends to queue
 
@@ -105,24 +111,28 @@ CountingThread::CountingThread() {}
 
 void CountingThread::run()
 {
-
+// можливо проблема через цей мютекс, але коли я його переставляю
+    // в іф, програма взагалі не закінчує ранитися
     while (true) {
-        words_counter_t local_dictionary;
-        QMutexLocker lk(&mux);
-        if (!d.empty()) {
-            QList<QString> v;
-            v << d.head();
-            d.dequeue();
-            lk.unlock();
+            words_counter_t local_dictionary;
+            QMutexLocker lk(&mux);
+            if (!d.empty()) {
+                QList<QString> v;
+                v << d.head();
+                d.dequeue();
+                lk.unlock();
             for (int i = 0; i < v.size(); i++) {
-                QMutexLocker dict_lk(&mux); //окремий мютекслокер дати
+                QMutexLocker dict_lk(&mux1); //окремий мютекслокер дати
                 ++local_dictionary[v[i]];
             }
-            QMutexLocker other_lk(&mux);
+            QMutexLocker other_lk(&mux2);
             map_q.enqueue(local_dictionary);
+            cv1.wakeOne();
         }
-        else {
+        if (d.empty()) {
             if (done) {
+                done_count = true;
+                cv1.wakeOne();
                 break;
             }
             else {
@@ -131,6 +141,39 @@ void CountingThread::run()
         }
     }
 }
+
+
+class MergingThread : public QThread { //appends to queue
+
+public:
+    MergingThread();
+    void run();
+
+};
+
+MergingThread::MergingThread() {}
+
+
+void MergingThread::run()
+{
+    while (true) {
+    if (map_q.size() != 0) {
+        cout << "MERGE " << endl;
+        words_counter_t local_dictionary = map_q.head();
+    for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
+        words[itr.key()] += itr.value();
+    }
+    map_q.dequeue();
+    }else{
+        if (done_count) {
+            break;
+        }else{
+            cv1.wait(&mux2);
+        }
+    }
+    }
+}
+
 
 
 int main(int argc, char* argv[])
@@ -149,20 +192,20 @@ int main(int argc, char* argv[])
     auto creating_threads_start_time = get_current_time_fenced();
 
     QThread* thr1 = new ReadingThread(in_filename);
-    thr1->start();
-    auto indexing_start_time = get_current_time_fenced();
 
     //!!!!!!!!!!!!!!!!!!!!!!!!
-
-    thr1->wait();
-    thr1->deleteLater();
 
     QList<CountingThread*> thread_lst;
     int num_pointer = 0;
     for (int el = 0; el < num_threads; el++) {
         thread_lst.append(new CountingThread());
     }
+    QThread* merging = new MergingThread();
 
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ //starting all the threads
+    auto indexing_start_time = get_current_time_fenced();
+    thr1->start();
     for (auto thread : thread_lst) {
         if (num_threads > 1) {
             thread->start(); // thread->run(); STARTS CODE IN THIS THREAD! Use start to run code in other thread.
@@ -171,7 +214,13 @@ int main(int argc, char* argv[])
             thread->run(); // Do not use threads at all.
         }
     }
+    merging->start();
 
+
+
+//waiting and deleting
+    thr1->wait();
+    thr1->deleteLater();
     for (auto thread : thread_lst) {
 
         thread->wait();
@@ -181,10 +230,11 @@ int main(int argc, char* argv[])
         thread->deleteLater();
     }
 
-    while (map_q.size() != 0) {
-        reducer(words, map_q.head());
-        map_q.dequeue();
-    }
+   // qDebug() << map_q;
+
+    merging->wait();
+    merging->deleteLater();
+
 
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
