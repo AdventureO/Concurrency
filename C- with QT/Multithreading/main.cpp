@@ -10,7 +10,8 @@
 #include <QWaitCondition>
 #include <QTime>
 #include "timing_v1.hpp"
-
+#include <QCoreApplication>
+#include <QDebug>
 using namespace std;
 
 using words_counter_t = QMap<QString, int>;
@@ -41,24 +42,21 @@ QStringList reading(const QString& filename) {
 QList<int> lst_division(QStringList& data_lst, int threads) {
     QList<int> general;
     int pointer = 0;
-  //  if da
     int division = std::ceil((float)data_lst.size()/threads);
-   // cout << "di vision " << division << endl;
+    cout << division << "div " << endl;
         while (pointer+division < data_lst.size()) {
 
             general.append(pointer);
-            general.append(pointer+division);
+            general.append(pointer+division-1);
 
-            pointer += division + 1;
+            pointer += division;
         }
 
         if (pointer < data_lst.size()) {
             general.append(pointer);
-          //  if (pointer < data_lst.size()-1) {
-            general.append(data_lst.size()-1);//}
+            general.append(data_lst.size()-1);
             pointer = data_lst.size();
         }
-
 
     return general;
 }
@@ -97,6 +95,7 @@ void CountingThread::run() {
 #else
 void CountingThread::run() {
     words_counter_t local_dictionary;
+
     for (int a=num_start; a<=num_fin; a++) {
         ++local_dictionary[data[a]];
     }
@@ -110,28 +109,16 @@ void CountingThread::run() {
 
 int main(int argc, char *argv[], char**env)
 {
-   // ----------------------------------------------
-   // reading from command promt
+    // ----------------------------------------------
+   // reading from script of command prommt
+  // command prommt input example : 3 /home/yaryna/Desktop/ sec.txt RESULT_FOR_TEST.txt 9 "LAST"
 
-    char thread[16];
-    string base;
-    string infile;
-    string outfile;
-
-    cout << "threads ";
+    QCoreApplication app(argc, argv, **env);
     int num_threads;
-    cin.getline( thread, 16 );
-    sscanf(thread, "%d", &num_threads);
-    cout << "base_path ";
-    std::getline(std::cin, base);
-    QString base_path(base.c_str());
-    cout << "input_file ";
-    std::getline(std::cin, infile);
-    QString inpfile(infile.c_str());
-    cout << "output_file ";
-    std::getline(std::cin, outfile);
-    QString outpfile(outfile.c_str());
-
+    sscanf(argv[1], "%d", &num_threads);
+    QString base_path(argv[2]);
+    QString inpfile(argv[3]);
+    QString outpfile(argv[4]);
 
    QString out_filename{base_path + outpfile};
    QString in_filename {base_path + inpfile};
@@ -154,7 +141,6 @@ int main(int argc, char *argv[], char**env)
    QList<CountingThread*> thread_lst;
    int num_pointer = 0;
    for (int el=0; el<num_threads; el++) {
-     //  cout <<num_lst[num_pointer] << "AND" << num_lst[num_pointer+1]<< " ";
                thread_lst.append(new CountingThread(\
                                      words_lst, num_lst[num_pointer], num_lst[num_pointer+1]));
                num_pointer += 2;
@@ -193,6 +179,7 @@ int main(int argc, char *argv[], char**env)
        delete x;
 
    int total_words = 0;
+   qDebug() << words;
    for(auto it = words.begin(); it != words.end(); ++it) {
        total_words += it.value();
    }
@@ -204,6 +191,7 @@ int main(int argc, char *argv[], char**env)
 
    if( words_lst.size() != total_words )
    {
+       cout << words_lst.size() << " s " << total_words << " t " << endl;
        cerr << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
    //---------------------------------------------------------------
