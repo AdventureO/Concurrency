@@ -24,33 +24,47 @@ words_counter_t words;
 QMutex mutex;
 QWaitCondition bufferNotEmpty;
 
-
-QStringList reading(const QString& filename, int mode_trig) { //mode trigger == 1 - we remove all punctuation
+QStringList reading1(const QString& filename) {
     QStringList lst;
     QFile inputFile(filename);
     QString l;
     if (inputFile.open(QIODevice::ReadOnly))
     {
-       QTextStream in(&inputFile);
-          if (mode_trig == 1) {
-
-              l = in.readAll().toLower();
-
-          for (QChar el : l) {
-              if (el.isPunct()) {l.remove(el);}
-          }
+         QTextStream in(&inputFile);
+    l = in.readAll();
+   for (QChar el : l) {
+       if ((el == (QChar)'=')|| (el == (QChar)'\xa')) {
+           l.replace('=', ' ');
+           l.replace('\xa',  ' ');
+           l.replace('"',  ' ');
 }
-          else {
-               l = in.readAll();
-              for (QChar el : l) {
-                  if ((el == (QChar)'=')|| (el == (QChar)'\xa')) {
-                      l.replace('=', ' ');
-                      l.replace('\xa',  ' ');
-                      l.replace('"',  ' ');
 }
-          }
-          }
-          lst = l.simplified().split(' ', QString::SkipEmptyParts);
+   lst << l.simplified().split(' ', QString::SkipEmptyParts);
+
+   inputFile.close();
+
+}
+return lst;
+}
+
+QStringList reading(const QString& filename) { //mode trigger == 1 - we remove all punctuation
+    QStringList lst;
+    QFile inputFile(filename);
+    QString l;
+    if (inputFile.open(QIODevice::ReadOnly)) {
+            QTextStream in(&inputFile);
+            while (!in.atEnd()) {
+
+                QString l = in.readLine().toLower();
+                for (QChar el : l) {
+                    if (el.isPunct()) {
+                        l.remove(el);
+                    }
+                }
+
+    lst << l.simplified().split(' ', QString::SkipEmptyParts);
+}
+
 
        inputFile.close();
 
@@ -104,10 +118,10 @@ int main(int argc, char *argv[])
     QString in_filename, out_filename;
     int num_threads;
 
-    QString myargfile("/home/yaryna/data_input.txt");
+    QString myargfile("/home/yaryna/AKS_main/data_input.txt");
     QFile myFile();
 
-    QStringList lst_arg = reading(myargfile, 0);
+    QStringList lst_arg = reading1(myargfile);
       //  sscanf(argv[1], "%d", &num_threads);
 
     //    QString base_path(argv[2]);
@@ -121,7 +135,7 @@ int main(int argc, char *argv[])
 
     auto creating_threads_start_time = get_current_time_fenced();
 
-    QStringList words_lst = reading(in_filename, 1); //skip punctuation
+    QStringList words_lst = reading(in_filename); //skip punctuation
 
     QMap<QString, int> result_futures;
     if (words_lst.isEmpty()) {
@@ -181,7 +195,7 @@ int main(int argc, char *argv[])
    }
 //   //---------------------------------------------------------------
    QFile output_file(out_filename);
-   if (!output_file.open(QIODevice::WriteOnly|QIODevice::Append)) {
+   if (!output_file.open(QIODevice::WriteOnly)) {
        cerr << "Could not write file with results." << endl;
        return -1;
    }
@@ -193,10 +207,14 @@ int main(int argc, char *argv[])
    }
 
 
-   output_stream << "Reading time: " << reading_time << endl;
-   output_stream << "Threading time: " << threading_time << endl;
-   output_stream << "Total time: " << total_time << endl;
+   output_stream << reading_time << endl;
+   output_stream << total_time << endl;
+   output_stream << threading_time << endl;
 
+//   for (auto it = words.begin(); it != words.end(); ++it) {
+//           // Format output here.
+//           output_stream << QString("%1 : %2 \n").arg(it.key(), 10).arg(it.value(), 10);
+//   }
    output_file.close();
 }
 
