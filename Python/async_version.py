@@ -6,6 +6,7 @@ from string import punctuation
 Виправив async
 Тепер працює правильно (я так думаю)
 """
+
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
@@ -21,7 +22,6 @@ def write_file(word_counter, file_name):
             file.write('{:15}{:3}\n'.format(word, occurance))
 
 async def words_counting(words_list):
-
     local_dict = {}
     for word in words_list:
         if word not in local_dict:
@@ -32,14 +32,21 @@ async def words_counting(words_list):
     return local_dict
 
 
-
+"""
 def print_result(word_counter):
     for (word, occurance) in word_counter.items():
         print('{:15} {:3}\n'.format(word, occurance))
+"""
 
+with open("input_data") as f:
+    content = f.readlines()
 
-number_of_tasks = 4
-input_list = read_file('text1.txt')
+content = [x.strip().split("=")[1] for x in content]
+for i in range(len(content)-1):
+    content[i] = content[i][1:-1]
+
+number_of_tasks = int(content[2])
+input_list = read_file(content[0])
 word_counter = {}
 avg = len(input_list) / number_of_tasks
 last = 0
@@ -68,4 +75,4 @@ if __name__ == "__main__":
     print("Got {} tasks in {} seconds".format(number_of_tasks, time.time() - start))
 
 
-write_file(word_counter, "result.txt")
+write_file(word_counter, content[1])

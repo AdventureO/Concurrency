@@ -1,0 +1,3 @@
+infile="text1.txt"
+outfile="result.txt"
+threads=4
