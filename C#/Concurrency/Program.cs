@@ -16,7 +16,13 @@ namespace Concurrency
 
             Dictionary<string, int> wordsCount = textDataController.GetWordsCountInParallel("Words Processing Data.txt", 4);
 
-            Console.WriteLine(wordsCount.Keys.Count);
+            Console.WriteLine("Threads word count: " + wordsCount.Keys.Count);
+
+            Console.ReadLine();
+
+            wordsCount = textDataController.GetWordsCountAsync("Words Processing Data.txt", 4);
+
+            Console.WriteLine("Async word count: " + wordsCount.Keys.Count);
 
             Console.ReadLine();
         }

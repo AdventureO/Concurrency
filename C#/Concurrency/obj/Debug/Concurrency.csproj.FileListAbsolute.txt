@@ -5,3 +5,9 @@ C:\Users\Romko\Desktop\Architecture Project UCU\Concurrency\C#\Concurrency\bin\D
 C:\Users\Romko\Desktop\Architecture Project UCU\Concurrency\C#\Concurrency\obj\Debug\Concurrency.csprojResolveAssemblyReference.cache
 C:\Users\Romko\Desktop\Architecture Project UCU\Concurrency\C#\Concurrency\obj\Debug\Concurrency.exe
 C:\Users\Romko\Desktop\Architecture Project UCU\Concurrency\C#\Concurrency\obj\Debug\Concurrency.pdb
+F:\Visual Studio Projects\Concurrency Project\C#\Concurrency\bin\Debug\Concurrency.exe.config
+F:\Visual Studio Projects\Concurrency Project\C#\Concurrency\obj\Debug\Concurrency.exe
+F:\Visual Studio Projects\Concurrency Project\C#\Concurrency\obj\Debug\Concurrency.pdb
+F:\Visual Studio Projects\Concurrency Project\C#\Concurrency\bin\Debug\Concurrency.exe
+F:\Visual Studio Projects\Concurrency Project\C#\Concurrency\bin\Debug\Concurrency.pdb
+F:\Visual Studio Projects\Concurrency Project\C#\Concurrency\obj\Debug\Concurrency.csprojResolveAssemblyReference.cache
