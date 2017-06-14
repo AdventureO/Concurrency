@@ -20,38 +20,49 @@ QMutex mutex;
 QWaitCondition bufferNotEmpty;
 
 
-QStringList reading(const QString& filename, int mode_trig) { //mode trigger == 1 - we remove all punctuation
+QStringList reading1(const QString& filename) { //just to read the arguments from argument_file
     QStringList lst;
     QFile inputFile(filename);
     QString l;
     if (inputFile.open(QIODevice::ReadOnly))
     {
-       QTextStream in(&inputFile);
-          if (mode_trig == 1) {
-
-              l = in.readAll().toLower();
-
-          for (QChar el : l) {
-              if (el.isPunct()) {l.remove(el);}
-          }
+         QTextStream in(&inputFile);
+    l = in.readAll();
+   for (QChar el : l) {
+       if ((el == (QChar)'=')|| (el == (QChar)'\xa')) {
+           l.replace('=', ' ');
+           l.replace('\xa',  ' ');
+           l.replace('"',  ' ');
 }
-          else {
-               l = in.readAll();
-              for (QChar el : l) {
-                  if ((el == (QChar)'=')|| (el == (QChar)'\xa')) {
-                      l.replace('=', ' ');
-                      l.replace('\xa',  ' ');
-                      l.replace('"',  ' ');
 }
-          }
-          }
-          lst = l.simplified().split(' ', QString::SkipEmptyParts);
+   lst << l.simplified().split(' ', QString::SkipEmptyParts);
+
+   inputFile.close();
+
+}
+return lst;
+}
+
+
+QStringList reading(const QString& filename) {
+    QStringList lst;
+    QFile inputFile(filename);
+    QString l;
+    if (inputFile.open(QIODevice::ReadOnly)) {
+
+            QTextStream in(&inputFile);
+            while (!in.atEnd()) {
+            in >> l;
+    lst << l;
+}
+
 
        inputFile.close();
 
     }
     return lst;
 }
+
 
 QList<int> lst_division(QStringList& data_lst, int threads) {
     QList<int> general;
@@ -78,11 +89,11 @@ QList<int> lst_division(QStringList& data_lst, int threads) {
 class CountingThread : public QThread {
 
     public:
-        CountingThread(const QStringList& data_lst, int num_start_i, int num_fin_i);
+        CountingThread(QStringList& data_lst, int num_start_i, int num_fin_i);
         void run();
 
     protected:
-        const QStringList& data;
+        QStringList& data;
         const int num_start; // Нагадайте -- анекдот розкажу, про "справжній посередині, повертаю"
         const int num_fin;   // Крім того, start -- то такий метод QThread, а Ви його...
 
@@ -91,7 +102,7 @@ class CountingThread : public QThread {
  };
 
 
-CountingThread::CountingThread(const QStringList& data_lst,\
+CountingThread::CountingThread(QStringList& data_lst,\
                                int num_start_i, int num_fin_i):
     data (data_lst), num_start (num_start_i), num_fin(num_fin_i)
 {
@@ -101,6 +112,9 @@ CountingThread::CountingThread(const QStringList& data_lst,\
 #ifdef USE_STUPID_PARALLELIZATION
 void CountingThread::run() {
     for (int a=num_start; a<=num_fin; a++) {
+        QString tmp =  data[a].remove(remove_if(data[a].begin(), data[a].end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
+                                        - data[a].begin(), data[a].size() ).toUpper();
+
         QMutexLocker locker(&mutex);
         ++words[data[a]];
     }
@@ -110,11 +124,14 @@ void CountingThread::run() {
     words_counter_t local_dictionary;
 
     for (int a=num_start; a<=num_fin; a++) {
-        ++local_dictionary[data[a]];
+        QString tmp =  data[a].remove(remove_if(data[a].begin(), data[a].end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
+                                        - data[a].begin(), data[a].size() ).toUpper();
+              ++local_dictionary[data[a]];
     }
     QMutexLocker locker(&mutex);
     for(auto itr=local_dictionary.cbegin(); itr!=local_dictionary.cend(); ++itr)
     {
+
         words[itr.key()]+=itr.value();
     }
 }
@@ -131,17 +148,17 @@ int main(int argc, char *argv[], char**env)
    QString in_filename, out_filename;
     int num_threads;
 
-    QString myargfile("/home/yaryna/data_input.txt");
+    QString myargfile("/home/yaryna/AKS_main/data_input.txt");
     QFile myFile();
 
-    QStringList lst_arg = reading(myargfile, 0);
+    QStringList lst_arg = reading1(myargfile);
   //  sscanf(argv[1], "%d", &num_threads);
 
 //    QString base_path(argv[2]);
 
     in_filename = lst_arg[1];
     out_filename = lst_arg[3];
-    num_threads = lst_arg[5].toInt();
+    num_threads = stoi(argv[1]);
 
 
 //   QString out_filename{base_path + outpfile};
@@ -150,17 +167,13 @@ int main(int argc, char *argv[], char**env)
 
    auto creating_threads_start_time = get_current_time_fenced();  //reading time
 
-   QStringList words_lst = reading(in_filename, 1); // 1 - skip punctuation
+   QStringList words_lst = reading(in_filename); // 1 - skip punctuation
    if (words_lst.isEmpty()) {
        cerr << "No data in the file or mistake in configuration"<< endl;
        return -1;
    }
    if (words_lst.size()<num_threads) num_threads=words_lst.size()-1; //!!!
    QList<int> num_lst = lst_division(words_lst, num_threads);
-
-   cout << "PROGRAM DESCRIPTION" << endl;
-   cout << "TOTAL QUANTITY OF WORDS: " << words_lst.size() << endl;
-   cout << "Threads: " << num_threads << endl;
 
    auto indexing_start_time = get_current_time_fenced();   //threading time
 
@@ -221,7 +234,7 @@ int main(int argc, char *argv[], char**env)
    }
    //---------------------------------------------------------------
    QFile output_file(out_filename);
-   if (!output_file.open(QIODevice::WriteOnly|QIODevice::Append)) {
+   if (!output_file.open(QIODevice::WriteOnly)) {
        cerr << "Could not write file with results." << endl;
        return -1;
    }
@@ -231,9 +244,10 @@ int main(int argc, char *argv[], char**env)
    {
        output_stream << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
-   output_stream << "Reading time: " << reading_time << endl;
-   output_stream << "Threading time: " << threading_time << endl;
-   output_stream << "Total time: " << total_time << endl;
+   output_stream << reading_time << endl;
+   output_stream << total_time << endl;
+
+   output_stream << threading_time << endl;
 
 //   for (auto it = words.begin(); it != words.end(); ++it) {
 //       // Format output here.
