@@ -23,12 +23,14 @@ public class WordCounter_Future {
         long readingStartTime = System.nanoTime();
         wordCounter.readFile(filename);
         long readingExecutionTime = System.nanoTime() - readingStartTime;
-        System.out.println("Reading time: " + wordCounter.timeToString(readingExecutionTime));
+        //System.out.println("Reading time: " + wordCounter.timeToString(readingExecutionTime));
+        //System.out.println("Reading time: " + wordCounter.timeToStringMicro(readingExecutionTime));
 
         // extracting and counting words in threads
         long wordCountStartTime = System.nanoTime();
         wordCounter.divideString();
 
+        long calculatingStartTime = System.nanoTime();
         ExecutorService threadpool = Executors.newFixedThreadPool(numberOfThreads); // create a pool of threads
         List <Future<HashMap<String, Integer>>> list = new ArrayList<Future<HashMap<String, Integer>>>();
         for (int i = 0; i < numberOfThreads; i++) {
@@ -48,15 +50,19 @@ public class WordCounter_Future {
         }
         threadpool.shutdown();
 
+        long calculatingExecutionTime = System.nanoTime() - calculatingStartTime;
+        System.out.println("Calculating time: " + wordCounter.timeToStringMicro(calculatingExecutionTime));
         long wordCountExecutionTime = System.nanoTime() - wordCountStartTime;
-        System.out.println("Word count time: " + wordCounter.timeToString(wordCountExecutionTime));
+        //System.out.println("Word count time: " + wordCounter.timeToString(wordCountExecutionTime));
+        //System.out.println("Word count time: " + wordCounter.timeToStringMicro(wordCountExecutionTime));
 
         long totalexecutionTime = readingExecutionTime + wordCountExecutionTime;
-        System.out.println("Total time: " + wordCounter.timeToString(totalexecutionTime));
+        //System.out.println("Total time: " + wordCounter.timeToString(totalexecutionTime));
+        System.out.println("Total time: " + wordCounter.timeToStringMicro(totalexecutionTime));
 
-        wordCounter.sortByOccurrences(mainHashMap);
-        wordCounter.sortByAlphabet(mainHashMap);
-        wordCounter.writeOutputFile(readingExecutionTime, wordCountExecutionTime, totalexecutionTime);
+        //wordCounter.sortByOccurrences(mainHashMap);
+        //wordCounter.sortByAlphabet(mainHashMap);
+        //wordCounter.writeOutputFile(readingExecutionTime, wordCountExecutionTime, totalexecutionTime);
 
     }
 
@@ -160,6 +166,11 @@ public class WordCounter_Future {
     private String timeToString(long time) {
         String timeString = String.format("%d s %d ms", TimeUnit.NANOSECONDS.toSeconds(time),
                 TimeUnit.NANOSECONDS.toMillis(time) - TimeUnit.SECONDS.toMillis(TimeUnit.NANOSECONDS.toSeconds(time)));
+        return timeString;
+    }
+
+    private String timeToStringMicro(long time) {
+        String timeString = String.format("%d microseconds", TimeUnit.NANOSECONDS.toMicros(time));
         return timeString;
     }
 
