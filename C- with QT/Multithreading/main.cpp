@@ -221,7 +221,7 @@ int main(int argc, char *argv[], char**env)
    }
    //---------------------------------------------------------------
    QFile output_file(out_filename);
-   if (!output_file.open(QIODevice::WriteOnly)) {
+   if (!output_file.open(QIODevice::WriteOnly|QIODevice::Append)) {
        cerr << "Could not write file with results." << endl;
        return -1;
    }
