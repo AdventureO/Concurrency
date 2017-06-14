@@ -1,0 +1,3 @@
+infile="/home/yaryna/Desktop/sec.txt"
+out_file="/home/yaryna/Desktop/res_a.txt"
+threads=5
