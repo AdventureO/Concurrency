@@ -25,33 +25,41 @@ def words_counting(words_list, word_counter):
         if word not in local_dict:
             local_dict[word] = 1
         else:
-            local_dict[word] =+ 1
+            local_dict[word] += 1
 
     return local_dict
 
 """
 Зміна між ThreadPoolExecutor та  ProcessPoolExecutor
 """
-while True:
-    version = str(input("For ThreadPoolExecutor enter - t, for  ProcessPoolExecutor enter - m: "))
-    number_of_workers = int(input("Enter a number of max_workers: "))
+with open("input_data") as f:
+    content = f.readlines()
 
-    if version == "t" and number_of_workers > 0:
+content = [x.strip().split("=")[1] for x in content]
+for i in range(len(content)-1):
+    content[i] = content[i][1:-1]
+
+while True:
+
+    if content[2] == "t":
+        print("Threading")
         type = ThreadPoolExecutor
         break
 
-    elif version == "m" and number_of_workers > 0:
+    elif content[2] == "m":
+        print("Multiprocessing")
         type = ProcessPoolExecutor
         break
 
 
-input_list = read_file('text1.txt')
-threads = 4
+input_list = read_file(content[0])
+number_of_workers = int(content[-1])
 
 """
-ділення масиву слів на певну кількість - number_of_workers
+ділення масиву слів на
+певну кількість - number_of_workers
 """
-avg = len(input_list) / threads
+avg = len(input_list) / number_of_workers
 last = 0
 word_counter = {}
 results = []
@@ -72,4 +80,4 @@ with type(max_workers=number_of_workers) as pool:
                 word_counter[word] = future.result()[word]
 
 print(time.time() - start_time)
-write_file(word_counter, 'result.txt')
+write_file(word_counter, content[1])
