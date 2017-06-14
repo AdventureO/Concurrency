@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.IO;
+using System.Diagnostics;
 
 namespace Concurrency
 {
@@ -74,13 +74,15 @@ namespace Concurrency
             callbackAction?.Invoke();
         }
 
-        public Dictionary<string, int> GetWordsCountInParallel(string fileName, int threadsQuantity)
+        public Dictionary<string, int> GetWordsCountInParallel(string fileName, int threadsQuantity, out long calculationTime)
         {
             Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
 
             Thread[] counting_threads = new Thread[threadsQuantity];
 
             int fileDataChunkIndexStep = File.ReadLines(fileName).Count() / threadsQuantity;
+
+            Stopwatch watch = Stopwatch.StartNew();
 
             for (int i = 0; i < threadsQuantity; i++)
             {
@@ -92,6 +94,80 @@ namespace Concurrency
             {
                 counting_threads[i].Join();
             }
+
+            calculationTime = watch.ElapsedTicks / (Stopwatch.Frequency / (1000L * 1000L));
+            watch.Stop();
+
+            return wordsCount;
+        }
+
+        private void CountWordsFromArrayInParallel(ref List<string> fileLines, ref Dictionary<string, int> globalWordsCount, int startingLineIndex, int endingLineIndex, Action callbackAction = null)
+        {
+            Dictionary<string, int> localWordsCount = new Dictionary<string, int>(globalWordsCount.Count);
+            int startingWordCount = 1;
+
+
+            string[] fileLineWordsBuffer;
+
+            for (int j = startingLineIndex; j < fileLines.Count && j < endingLineIndex; j++)
+            {
+                fileLineWordsBuffer = fileLines[j].Split(' ');
+                for (int i = 0; i < fileLineWordsBuffer.Length; i++)
+                {
+                    if (localWordsCount.ContainsKey(fileLineWordsBuffer[i]))
+                    {
+                        localWordsCount[fileLineWordsBuffer[i]]++;
+                    }
+                    else
+                    {
+                        localWordsCount.Add(fileLineWordsBuffer[i], startingWordCount);
+                    }
+                }
+            }
+
+            lock (this._lockObject)
+            {
+                foreach (string word in localWordsCount.Keys)
+                {
+                    if (globalWordsCount.ContainsKey(word))
+                    {
+                        globalWordsCount[word] += localWordsCount[word];
+                    }
+                    else
+                    {
+                        globalWordsCount.Add(word, localWordsCount[word]);
+                    }
+                }
+            }
+
+            callbackAction?.Invoke();
+        }
+
+        public Dictionary<string, int> GetWordsCountInParallel(List<string> lines, int threadsQuantity, out long calculationTime)
+        {
+            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+
+            Thread[] counting_threads = new Thread[threadsQuantity];
+
+            int fileDataChunkIndexStep = lines.Count / threadsQuantity;
+
+            Stopwatch watch = Stopwatch.StartNew();
+
+            for (int i = 0; i < threadsQuantity; i++)
+            {
+                int startingIndex = fileDataChunkIndexStep * i;
+                int endingIndex = fileDataChunkIndexStep * (i + 1);
+                counting_threads[i] = new Thread(new ThreadStart(delegate { this.CountWordsFromArrayInParallel(ref lines, ref wordsCount, startingIndex, endingIndex); }));
+                counting_threads[i].Start();
+            }
+
+            for (int i = 0; i < threadsQuantity; i++)
+            {
+                counting_threads[i].Join();
+            }
+
+            calculationTime = watch.ElapsedTicks / (Stopwatch.Frequency / (1000L * 1000L));
+            watch.Stop();
 
             return wordsCount;
         }
@@ -190,7 +266,7 @@ namespace Concurrency
             });
         }
 
-        public Dictionary<string, int> GetWordsCountAsync(string fileName, int threadsQuantity)
+        public Dictionary<string, int> GetWordsCountAsync(string fileName, int threadsQuantity, out long calculationTime, Action callbackAction = null)
         {
             Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
 
@@ -198,9 +274,11 @@ namespace Concurrency
 
             int fileDataChunkIndexStep = File.ReadLines(fileName).Count() / threadsQuantity;
 
+            Stopwatch watch = Stopwatch.StartNew();
+
             for (int i = 0; i < threadsQuantity; i++)
             {
-                counting_tasks[i] = this.CountWordsFromFileAsync(fileName, fileDataChunkIndexStep * i);
+                counting_tasks[i] = this.CountWordsFromFileAsync(fileName, fileDataChunkIndexStep * i, callbackAction);
             }
 
             Task<Dictionary<string, int>[]> results = Task.WhenAll(counting_tasks);
@@ -214,6 +292,8 @@ namespace Concurrency
 
             if (results.Status == TaskStatus.RanToCompletion)
             {
+                calculationTime = watch.ElapsedTicks / (Stopwatch.Frequency / (1000L * 1000L));
+                watch.Stop();
                 foreach (var result in results.Result)
                 {
                     foreach (string word in result.Keys)
@@ -233,6 +313,86 @@ namespace Concurrency
             {
                 foreach (var t in counting_tasks)
                     Console.WriteLine("Task {0}: {1}", t.Id, t.Status);
+                calculationTime = 0;
+            }
+
+            return wordsCount;
+        }
+
+        private Task<Dictionary<string, int>> CountWordsFromArrayAsync(List<string> fileLines, int startingLineIndex, int endingLineIndex, Action callbackAction = null)
+        {
+            return Task.Factory.StartNew(() =>
+            {
+                Dictionary<string, int> localWordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+                int startingWordCount = 1;
+
+                string[] fileLineWordsBuffer;
+
+                for (int j = startingLineIndex; j < fileLines.Count && j < endingLineIndex; j++)
+                {
+                    fileLineWordsBuffer = fileLines[j].Split(' ');
+                    for (int i = 0; i < fileLineWordsBuffer.Length; i++)
+                    {
+                        if (localWordsCount.ContainsKey(fileLineWordsBuffer[i]))
+                        {
+                            localWordsCount[fileLineWordsBuffer[i]]++;
+                        }
+                        else
+                        {
+                            localWordsCount.Add(fileLineWordsBuffer[i], startingWordCount);
+                        }
+                    }
+                }
+
+                callbackAction?.Invoke();
+
+                return localWordsCount;
+            });
+        }
+
+        public Dictionary<string, int> GetWordsCountAsync(List<string> lines, int threadsQuantity, out long calculationTime)
+        {
+            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+
+            Task<Dictionary<string, int>>[] counting_tasks = new Task<Dictionary<string, int>>[threadsQuantity];
+
+            int fileDataChunkIndexStep = lines.Count / threadsQuantity;
+
+            Stopwatch watch = Stopwatch.StartNew();
+
+            for (int i = 0; i < threadsQuantity; i++)
+            {
+                int startingIndex = fileDataChunkIndexStep * i;
+                int endingIndex = fileDataChunkIndexStep * (i + 1);
+                counting_tasks[i] = this.CountWordsFromArrayAsync(lines, startingIndex, endingIndex);
+            }
+
+            Task<Dictionary<string, int>[]> results = Task.WhenAll(counting_tasks);
+
+            if (results.Status == TaskStatus.RanToCompletion)
+            {
+                calculationTime = watch.ElapsedTicks / (Stopwatch.Frequency / (1000L * 1000L));
+                watch.Stop();
+                foreach (var result in results.Result)
+                {
+                    foreach (string word in result.Keys)
+                    {
+                        if (wordsCount.ContainsKey(word))
+                        {
+                            wordsCount[word] += result[word];
+                        }
+                        else
+                        {
+                            wordsCount.Add(word, result[word]);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (var t in counting_tasks)
+                    Console.WriteLine("Task {0}: {1}", t.Id, t.Status);
+                calculationTime = 0;
             }
 
             return wordsCount;
