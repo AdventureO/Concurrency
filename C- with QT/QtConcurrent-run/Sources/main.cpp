@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 
         in_filename = lst_arg[1];
         out_filename = lst_arg[3];
-        num_threads = lst_arg[5].toInt();
+        num_threads = stoi(argv[1]);
 
 
     // ----------------------------------------------
