@@ -207,10 +207,9 @@ int main(int argc, char *argv[])
    }
 
 
-   output_stream << "Reading time: " << reading_time << endl;
-   output_stream << "Threading time: " << threading_time << endl;
-   output_stream << "Total time: " << total_time << endl;
-   output_stream << "Total words: " << total_words << endl;
+   output_stream << reading_time << endl;
+   output_stream << total_time << endl;
+   output_stream << threading_time << endl;
 
 //   for (auto it = words.begin(); it != words.end(); ++it) {
 //           // Format output here.
