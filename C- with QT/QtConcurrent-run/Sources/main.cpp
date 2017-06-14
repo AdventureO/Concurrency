@@ -25,17 +25,31 @@ QMutex mutex;
 QWaitCondition bufferNotEmpty;
 
 
-QStringList reading(const QString& filename) {
+QStringList reading(const QString& filename, int mode_trig) { //mode trigger == 1 - we remove all punctuation
     QStringList lst;
     QFile inputFile(filename);
+    QString l;
     if (inputFile.open(QIODevice::ReadOnly))
     {
        QTextStream in(&inputFile);
-          QString l = in.readAll().toLower();
+          if (mode_trig == 1) {
+
+              l = in.readAll().toLower();
+
           for (QChar el : l) {
               if (el.isPunct()) {l.remove(el);}
           }
-
+}
+          else {
+               l = in.readAll();
+              for (QChar el : l) {
+                  if ((el == (QChar)'=')|| (el == (QChar)'\xa')) {
+                      l.replace('=', ' ');
+                      l.replace('\xa',  ' ');
+                      l.replace('"',  ' ');
+}
+          }
+          }
           lst = l.simplified().split(' ', QString::SkipEmptyParts);
 
        inputFile.close();
@@ -87,20 +101,28 @@ int main(int argc, char *argv[])
 
     QCoreApplication app(argc, argv);
 
+    QString in_filename, out_filename;
     int num_threads;
-    sscanf(argv[1], "%d", &num_threads);
-    QString base_path(argv[2]);
-    QString inpfile(argv[3]);
-    QString outpfile(argv[4]);
 
+    QString myargfile("/home/yaryna/data_input.txt");
+    QFile myFile();
 
-    QString out_filename{base_path + outpfile};
-    QString in_filename {base_path + inpfile};
+    QStringList lst_arg = reading(myargfile, 0);
+      //  sscanf(argv[1], "%d", &num_threads);
+
+    //    QString base_path(argv[2]);
+
+        in_filename = lst_arg[1];
+        out_filename = lst_arg[3];
+        num_threads = lst_arg[5].toInt();
 
 
     // ----------------------------------------------
 
-    QStringList words_lst = reading(in_filename);
+    auto creating_threads_start_time = get_current_time_fenced();
+
+    QStringList words_lst = reading(in_filename, 1); //skip punctuation
+
     QMap<QString, int> result_futures;
     if (words_lst.isEmpty()) {
        cerr << "No data in the file or mistake in configuration"<< endl;
@@ -109,12 +131,8 @@ int main(int argc, char *argv[])
     if (words_lst.size()<num_threads) num_threads=words_lst.size()-1; //!!!
     QList<int> num_lst = lst_division(words_lst, num_threads);
 
-    cout << "+++++++++++++++++++++++" << endl;
-    cout << "PROGRAM DESCRIPTION/TRY " << argv[5]<<endl;
-    cout << "TOTAL QUANTITY OF WORDS: " << words_lst.size() << endl;
 
     QList<QFuture<words_counter_t>> future_list;
-    auto creating_threads_start_time = get_current_time_fenced();
 
     int num_pointer = 0;
     auto indexing_start_time = get_current_time_fenced();
@@ -150,10 +168,12 @@ int main(int argc, char *argv[])
        total_words += it.value();
    }
 
-   auto time_res = to_us(indexing_done_time - indexing_start_time);
-   auto creating_threads_time = to_us(indexing_start_time - creating_threads_start_time);
-   cout << "INDEXING TIME: " << time_res << " us " << endl;
-   cout << "THREADS CREATING TIME: " << creating_threads_time << " us " << endl;
+   auto threading_time = to_us(indexing_done_time - indexing_start_time);
+   auto reading_time = to_us(indexing_start_time - creating_threads_start_time);
+   auto total_time = to_us(indexing_done_time - creating_threads_start_time);
+
+   cout << "INDEXING TIME: " << reading_time << " us " << endl;
+   cout << "THREADS CREATING TIME: " << threading_time << " us " << endl;
    if( words_lst.size() != total_words )
    {
        cout << "words" << words_lst.size() << " " << total_words << endl;
@@ -172,19 +192,11 @@ int main(int argc, char *argv[])
        output_stream << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
 
-   output_stream << "TRY " << argv[5] << endl;
-   output_stream << "Total words: " << total_words << endl;
-   output_stream << "Total time: " << time_res << endl;
 
-   output_stream << "+++++++++++++++" << endl;
+   output_stream << "Reading time: " << reading_time << endl;
+   output_stream << "Threading time: " << threading_time << endl;
+   output_stream << "Total time: " << total_time << endl;
 
-   if ((string)argv[6]=="LAST") {
-   for (auto it = words.begin(); it != words.end(); ++it) {
-       // Format output here.
-       output_stream << QString("%1 : %2 \n").arg(it.key(), 10).arg(it.value(), 10);
-     }
-   output_stream << "+++++++++++++++" << endl;
-   }
    output_file.close();
 }
 
