@@ -6,7 +6,6 @@ from multiprocessing import Process, Queue
 
 """
 multiprocessing with Queue
-
 """
 def read_file(file_name):
     words_list = []
@@ -51,13 +50,19 @@ class WordsCount(Process):
 
 
 
+with open("input_data") as f:
+    content = f.readlines()
 
-processes_number = 4
+content = [x.strip().split("=")[1] for x in content]
+for i in range(len(content)-1):
+    content[i] = content[i][1:-1]
+
+processes_number = int(content[-1])
 if __name__ == '__main__':
     word_counter = {}
     result_queue = Queue()
     processes = []
-    input_list = read_file('text1.txt')
+    input_list = read_file(content[0])
     avg = len(input_list) / processes_number
     last = 0
 
@@ -93,9 +98,4 @@ if __name__ == '__main__':
 
     print(word_counter)
     print('Got {} threads in {} seconds'.format(len(processes), time() - start_time))
-    write_file(word_counter, 'result.txt')
-
-
-
-
-
+    write_file(word_counter, content[1])
