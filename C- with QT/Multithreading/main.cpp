@@ -20,17 +20,31 @@ QMutex mutex;
 QWaitCondition bufferNotEmpty;
 
 
-QStringList reading(const QString& filename) {
+QStringList reading(const QString& filename, int mode_trig) { //mode trigger == 1 - we remove all punctuation
     QStringList lst;
     QFile inputFile(filename);
+    QString l;
     if (inputFile.open(QIODevice::ReadOnly))
     {
        QTextStream in(&inputFile);
-          QString l = in.readAll().toLower();
+          if (mode_trig == 1) {
+
+              l = in.readAll().toLower();
+
           for (QChar el : l) {
               if (el.isPunct()) {l.remove(el);}
           }
-
+}
+          else {
+               l = in.readAll();
+              for (QChar el : l) {
+                  if ((el == (QChar)'=')|| (el == (QChar)'\xa')) {
+                      l.replace('=', ' ');
+                      l.replace('\xa',  ' ');
+                      l.replace('"',  ' ');
+}
+          }
+          }
           lst = l.simplified().split(' ', QString::SkipEmptyParts);
 
        inputFile.close();
@@ -43,7 +57,6 @@ QList<int> lst_division(QStringList& data_lst, int threads) {
     QList<int> general;
     int pointer = 0;
     int division = std::ceil((float)data_lst.size()/threads);
-    cout << division << "div " << endl;
         while (pointer+division < data_lst.size()) {
 
             general.append(pointer);
@@ -114,17 +127,30 @@ int main(int argc, char *argv[], char**env)
   // command prommt input example : 3 /home/yaryna/Desktop/ sec.txt RESULT_FOR_TEST.txt 9 "LAST"
 
     QCoreApplication app(argc, argv, **env);
-    int num_threads;
-    sscanf(argv[1], "%d", &num_threads);
-    QString base_path(argv[2]);
-    QString inpfile(argv[3]);
-    QString outpfile(argv[4]);
 
-   QString out_filename{base_path + outpfile};
-   QString in_filename {base_path + inpfile};
+   QString in_filename, out_filename;
+    int num_threads;
+
+    QString myargfile("/home/yaryna/data_input.txt");
+    QFile myFile();
+
+    QStringList lst_arg = reading(myargfile, 0);
+  //  sscanf(argv[1], "%d", &num_threads);
+
+//    QString base_path(argv[2]);
+
+    in_filename = lst_arg[1];
+    out_filename = lst_arg[3];
+    num_threads = lst_arg[5].toInt();
+
+
+//   QString out_filename{base_path + outpfile};
+//   QString in_filename {base_path + inpfile};
    // ----------------------------------------------
 
-   QStringList words_lst = reading(in_filename);
+   auto creating_threads_start_time = get_current_time_fenced();  //reading time
+
+   QStringList words_lst = reading(in_filename, 1); // 1 - skip punctuation
    if (words_lst.isEmpty()) {
        cerr << "No data in the file or mistake in configuration"<< endl;
        return -1;
@@ -136,7 +162,7 @@ int main(int argc, char *argv[], char**env)
    cout << "TOTAL QUANTITY OF WORDS: " << words_lst.size() << endl;
    cout << "Threads: " << num_threads << endl;
 
-   auto creating_threads_start_time = get_current_time_fenced();
+   auto indexing_start_time = get_current_time_fenced();   //threading time
 
    QList<CountingThread*> thread_lst;
    int num_pointer = 0;
@@ -153,7 +179,6 @@ int main(int argc, char *argv[], char**env)
    // Performance counters -- див. PAPI тут:
    // Архітектура комп'ютерних систем (CS.02.17) --> Практична 2. Розпаралелення задач із явним використанням потоків ОС --> Вимірювання часу
    // (Пряме посилання не даю, з міркувань безпеки).
-   auto indexing_start_time = get_current_time_fenced();
 
    for (auto thread: thread_lst) {
        if(num_threads>1)
@@ -179,19 +204,19 @@ int main(int argc, char *argv[], char**env)
        delete x;
 
    int total_words = 0;
-   qDebug() << words;
    for(auto it = words.begin(); it != words.end(); ++it) {
        total_words += it.value();
    }
 
-   auto time_res = to_us(indexing_done_time - indexing_start_time);
-   auto creating_threads_time = to_us(indexing_start_time - creating_threads_start_time);
-   cout << "INDEXING TIME: " << time_res << " us " << endl;
-   cout << "THREADS CREATING TIME: " << creating_threads_time << " us " << endl;
+   auto threading_time = to_us(indexing_done_time - indexing_start_time);
+   auto reading_time = to_us(indexing_start_time - creating_threads_start_time);
+   auto total_time = to_us(indexing_done_time - creating_threads_start_time);
+
+   cout << "INDEXING TIME: " << threading_time << " us " << endl;
+   cout << "THREADS CREATING TIME: " << reading_time << " us " << endl;
 
    if( words_lst.size() != total_words )
    {
-       cout << words_lst.size() << " s " << total_words << " t " << endl;
        cerr << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
    //---------------------------------------------------------------
@@ -206,12 +231,14 @@ int main(int argc, char *argv[], char**env)
    {
        output_stream << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
-   output_stream << "Total words: " << total_words << endl;
-   output_stream << "Total time: " << time_res << endl;
-   for (auto it = words.begin(); it != words.end(); ++it) {
-       // Format output here.
-       output_stream << QString("%1 : %2 \n").arg(it.key(), 10).arg(it.value(), 10);
-   }
+   output_stream << "Reading time: " << reading_time << endl;
+   output_stream << "Threading time: " << threading_time << endl;
+   output_stream << "Total time: " << total_time << endl;
+
+//   for (auto it = words.begin(); it != words.end(); ++it) {
+//       // Format output here.
+//       output_stream << QString("%1 : %2 \n").arg(it.key(), 10).arg(it.value(), 10);
+//   }
    output_file.close();
 
 }
