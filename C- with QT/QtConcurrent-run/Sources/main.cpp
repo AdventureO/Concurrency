@@ -91,7 +91,7 @@ QList<int> lst_division(QStringList& data_lst, int threads) {
 words_counter_t mapper(int num_start, int num_fin, QStringList& data_lst) {
     words_counter_t words_local;
     for (int a=num_start; a<=num_fin; a++) {
-           QString tmp =  data_lst[a].remove(remove_if(data_lst[a].begin(), data_lst[a].end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
+           data_lst[a] =  data_lst[a].remove(remove_if(data_lst[a].begin(), data_lst[a].end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
                                 - data_lst[a].begin(), data_lst[a].size() ).toUpper();
 
                ++words_local[data_lst[a]];
