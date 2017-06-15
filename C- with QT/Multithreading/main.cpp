@@ -112,7 +112,7 @@ CountingThread::CountingThread(QStringList& data_lst,\
 #ifdef USE_STUPID_PARALLELIZATION
 void CountingThread::run() {
     for (int a=num_start; a<=num_fin; a++) {
-        QString tmp =  data[a].remove(remove_if(data[a].begin(), data[a].end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
+        data[a] =  data[a].remove(remove_if(data[a].begin(), data[a].end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
                                         - data[a].begin(), data[a].size() ).toUpper();
 
         QMutexLocker locker(&mutex);
