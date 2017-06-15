@@ -225,9 +225,6 @@ int main(int argc, char *argv[], char**env)
    auto reading_time = to_us(indexing_start_time - creating_threads_start_time);
    auto total_time = to_us(indexing_done_time - creating_threads_start_time);
 
-   cout << "INDEXING TIME: " << threading_time << " us " << endl;
-   cout << "THREADS CREATING TIME: " << reading_time << " us " << endl;
-
    if( words_lst.size() != total_words )
    {
        cerr << "Something wrong -- words count before and after indexing, differs!" << endl;
@@ -244,10 +241,11 @@ int main(int argc, char *argv[], char**env)
    {
        output_stream << "Something wrong -- words count before and after indexing, differs!" << endl;
    }
+    
    output_stream << reading_time << endl;
+   output_stream << threading_time << endl;
    output_stream << total_time << endl;
 
-   output_stream << threading_time << endl;
 
 //   for (auto it = words.begin(); it != words.end(); ++it) {
 //       // Format output here.
