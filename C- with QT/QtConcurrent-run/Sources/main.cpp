@@ -199,8 +199,9 @@ int main(int argc, char *argv[])
 
 
    output_stream << reading_time << endl;
-   output_stream << total_time << endl;
    output_stream << threading_time << endl;
+   output_stream << total_time << endl;
+
 
 //   for (auto it = words.begin(); it != words.end(); ++it) {
 //           // Format output here.
