@@ -1,2 +1,0 @@
-infile="data.txt"
-out_by="result.txt"
