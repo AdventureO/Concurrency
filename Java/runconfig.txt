@@ -1,0 +1,2 @@
+4 (number of threads)
+data10MB.txt (path to file to read from)
