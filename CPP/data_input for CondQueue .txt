@@ -1,0 +1,4 @@
+infile="data.txt"
+out_by_a="res_a.txt"
+out_by_n="res_n.txt"
+threads=5
