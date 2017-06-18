@@ -1,0 +1,40 @@
+Number of thread: 1
+Minimum parallel: 76497
+Minimum total: 94389
+######################
+Number of thread: 2
+Minimum parallel: 47119
+Minimum total: 65511
+######################
+Number of thread: 3
+Minimum parallel: 41524
+Minimum total: 60408
+######################
+Number of thread: 4
+Minimum parallel: 39426
+Minimum total: 59198
+######################
+Number of thread: 5
+Minimum parallel: 38926
+Minimum total: 57383
+######################
+Number of thread: 6
+Minimum parallel: 38210
+Minimum total: 56994
+######################
+Number of thread: 7
+Minimum parallel: 39568
+Minimum total: 58883
+######################
+Number of thread: 8
+Minimum parallel: 38558
+Minimum total: 57104
+######################
+Number of thread: 9
+Minimum parallel: 39099
+Minimum total: 58454
+######################
+Number of thread: 10
+Minimum parallel: 38948
+Minimum total: 58331
+######################
