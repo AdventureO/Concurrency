@@ -23,6 +23,8 @@ QMutex mux1;
 QMutex mux2;
 QMutex mux3;
 atomic<bool> done = { false };
+atomic<int> done_count;
+
 
 
 using words_counter_t = QMap<QString, int>;
@@ -31,11 +33,6 @@ QQueue<words_counter_t> map_q;
 
 
 
-
-//void reducer(words_counter_t& words, const words_counter_t& local_dictionary)
-//{
-
-//}
 
 class ReadingThread : public QThread { //appends to queue
 
@@ -57,28 +54,22 @@ void ReadingThread::run()
 {
     QStringList lst;
     int counter = 1;
-    int fullblock = 3;
+    int fullblock = 100;
     QFile inputFile(filename);
 
     if (inputFile.open(QIODevice::ReadOnly)) {
         QTextStream in(&inputFile);
         while (!in.atEnd()) {
 
-            QString l = in.readLine().toLower();
-            for (QChar el : l) {
-                if (el.isPunct()) {
-                    l.remove(el);
-                }
-            }
-
-            lst << l.simplified().split(' ', QString::SkipEmptyParts);
+            QString l = in.readLine();
+            lst << l;
             if (counter == fullblock) {
                 QMutexLocker lck(&mux);
                 d.enqueue(lst);
                 lck.unlock(); ///////////////////////
                 cv.wakeOne();
                 lst.clear();
-                counter = 1;
+                counter = 0; //
             }
             else {
                 counter++;
@@ -88,6 +79,7 @@ void ReadingThread::run()
 
             QMutexLocker lck(&mux);
             d << lst;
+            lck.unlock();
             cv.wakeOne();
         }
         inputFile.close();
@@ -119,8 +111,11 @@ void CountingThread::run()
 {
 // можливо проблема через цей мютекс, але коли я його переставляю
     // в іф, програма взагалі не закінчує ранитися
+    words_counter_t local_dictionary;
+
     while (true) {
-            words_counter_t local_dictionary;
+        qDebug() << done_count << " : COUNT";
+            QString l;
             QMutexLocker lk(&mux);
             if (!d.empty()) {
                 QList<QString> v;
@@ -128,8 +123,14 @@ void CountingThread::run()
                 d.dequeue();
                 lk.unlock();
             for (int i = 0; i < v.size(); i++) {
+                QTextStream in(&v[i]);
+                while (!in.atEnd()) {
+                in >> l;
+                l =  l.remove(remove_if(l.begin(), l.end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
+                - l.begin(), l.size() ).toLower();
                 QMutexLocker dict_lk(&mux1); //окремий мютекслокер дати
-                ++local_dictionary[v[i]];
+                ++local_dictionary[l];
+            }
             }
             QMutexLocker other_lk(&mux2);
             map_q.enqueue(local_dictionary);
@@ -148,6 +149,7 @@ void CountingThread::run()
         }
     }
     cv1.wakeAll();
+    qDebug() << "here";
     done_count--;
 }
 
@@ -171,6 +173,7 @@ MergingThread::MergingThread(atomic <int> &done_count)
 void MergingThread::run()
 {
     while (true) {
+        qDebug() << "COUNT BEFORE: " << done_count;
     QMutexLocker luk1(&mux2);
     if (map_q.size() != 0) {
         cout << "MERGE " << endl;
@@ -183,8 +186,10 @@ void MergingThread::run()
     map_q.dequeue();
     }else{
         if ((done_count==0)&&(map_q.isEmpty())) {
+            qDebug() << "DONE COUNT TRUE";
             break;
         }else{
+            qDebug() << "DONE COUNT FALSE";
             cv1.wait(&mux2);
         }
     }
@@ -201,8 +206,7 @@ int main(int argc, char* argv[])
     string infile;
     string outfile;
     int num_threads = 5;
-    atomic<int> done_count;
-    done_count = num_threads;
+    done_count = {num_threads};
 
     QString in_filename = "/home/yaryna/Desktop/one.txt";
     QString out_filename = "/home/yaryna/Desktop/NEWRESULTS.txt";
@@ -239,11 +243,11 @@ int main(int argc, char* argv[])
 
 
 //waiting and deleting
- //   thr1->wait();
-//    for (auto thread : thread_lst) {
+//    thr1->wait();
+    for (auto thread : thread_lst) {
 
-//        thread->wait();
-//    }
+        thread->wait();
+    }
 
     merging->wait();
 
