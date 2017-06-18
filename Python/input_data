@@ -1,3 +1,3 @@
-infile="text1.txt"
+infile="dt10.txt"
 outfile="result.txt"
-threads=4
+thread=1
