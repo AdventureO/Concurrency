@@ -161,7 +161,7 @@ int main() {
     string input_data[4], infile, out_by_a, out_by_n;
     int threads_n;
     ifstream myFile;
-    myFile.open("data_input.txt");
+    myFile.open("data_input_conc.txt");
 
     for(int i = 0; i < 4; i++)
         myFile >> input_data[i];
@@ -194,10 +194,10 @@ int main() {
     atomic <int> numT = {threads_n-2};
 
 
-    thread threads[threads_n];
+    vector<thread> threads;
 
     auto startProducer = get_current_time_fenced(); //<===
-    threads[0] = thread(producer, cref(infile), ref(dq));
+    threads.emplace_back(producer, cref(infile), ref(dq));
 
 
 
@@ -205,13 +205,13 @@ int main() {
 
     int thrIter = 1;
     while(thrIter != threads_n-1){
-        threads[thrIter] = thread(consumer, ref(dq), ref(dq1), ref(numT));
+        threads.emplace_back( consumer, ref(dq), ref(dq1), ref(numT));
         thrIter++;
         //cout<<thrIter<<endl;
     }
 
     //std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    threads[threads_n-1] = thread(finalConsumer, ref(dq1), ref(wordsMap), ref(numT));
+    threads.emplace_back(finalConsumer, ref(dq1), ref(wordsMap), ref(numT));
 
     for (auto& th : threads) {
         th.join();
