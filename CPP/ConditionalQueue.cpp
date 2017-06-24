@@ -9,7 +9,8 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
-#include <cstring>
+//#include <cstring>
+#include <cctype>
 
 using namespace std;
 
@@ -153,55 +154,66 @@ int finalConsumer(deque<map<string, int>>& dq1, map<string, int>& wordsMap, atom
 
 }
 
+map<string,string> read_config(const string& filename)
+{
+    map<string,string> result;
+    ifstream confFile(filename);
+    if( !confFile.is_open() ){
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+    string str;
+    while( getline(confFile,str) )
+    {
+        auto cut_pos = str.find("#");
+        if(cut_pos!=string::npos)
+            str.erase(cut_pos);
+        auto cut_iter = remove_if(str.begin(), str.end(), ::isspace);
+        str.erase( cut_iter, str.end() );
+        if( str.empty() )
+            continue;
+        auto pos = str.find('=');
+        if(pos==string::npos){
+            throw std::runtime_error("Wrong option: " + str + "\n in file: " + filename);
+        }
+        string name {str, 0, pos};
+        string value{str, pos+1, string::npos};
+        cut_iter = std::remove(value.begin(), value.end(), '\"');
+        value.erase(cut_iter, value.end());
+        result[name] = value;
+    }
+    return result;
+
+}
+
+#define CHECK_READED_CONFIGURATION
 int main() {
+    auto config = read_config("data_input_conc.txt");
 
     deque<vector<string>> dq;
     deque<map<string, int>> dq1;
     map<string, int> wordsMap;
-    string input_data[4], infile, out_by_a, out_by_n;
-    int threads_n;
-    ifstream myFile;
-    myFile.open("data_input_conc.txt");
 
-    for(int i = 0; i < 4; i++)
-        myFile >> input_data[i];
-    myFile.close();
+    string infile    =    config["infile"];
+    string out_by_a  =  config["out_by_a"];
+    string out_by_n  =  config["out_by_n"];
+    int    threads_n = stoi(config["threads"]);
+    atomic<int> numT = {threads_n-2};
 
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < input_data[i].length(); j++) {
-            if (input_data[i][j] == '=')
-                input_data[i][j] = ' ';
-        }
-        stringstream ss(input_data[i]);
-        string temp;
-        int k = 0;
-        while (ss >> temp) {
-            if (k != 0) {
-                stringstream lineStream(temp);
-                string s;
-                getline(lineStream,s,',');
-                s.erase(remove( s.begin(), s.end(), '\"' ), s.end());
-                input_data[i] = s;
-            }
-            k++;
-        }
+#ifdef CHECK_READED_CONFIGURATION
+    for(auto& option: config)
+    {
+        cout << option.first << "\t" << option.second << endl;
     }
-
-    infile = input_data[0];
-    out_by_a = input_data[1];
-    out_by_n = input_data[2];
-    threads_n = stoi(input_data[3]);
-    atomic <int> numT = {threads_n-2};
-
+    cout << "infile: " << infile << endl;
+    cout << "out_by_a: " << out_by_a << endl;
+    cout << "out_by_n: " << out_by_n << endl;
+    cout << "threads_n: " << threads_n << endl;
+#endif
 
     vector<thread> threads;
 
     auto startProducer = get_current_time_fenced(); //<===
     threads.emplace_back(producer, cref(infile), ref(dq));
-
-
-
-
 
     int thrIter = 1;
     while(thrIter != threads_n-1){
