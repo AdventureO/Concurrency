@@ -37,7 +37,7 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<chrono::microseconds>(d).count();
 }
 
-int producer(ifstream& file, deque<vector<string>>& dq) {
+int fileReaderProducer(ifstream& file, deque<vector<string>>& dq) {
     string line;
     vector<string> lines;
     int counter = 0;
@@ -74,7 +74,7 @@ int producer(ifstream& file, deque<vector<string>>& dq) {
     return 0;
 }
 
-int consumer(deque<vector<string>> &dq, deque<map<string, int>> &dq1, atomic <int> &numT) {
+int countWordsConsumer(deque<vector<string>> &dq, deque<map<string, int>> &dq1, atomic <int> &numT) {
     map<string, int> localMap;
     while(true) {
         unique_lock<mutex> luk(mtx);
@@ -120,7 +120,7 @@ int consumer(deque<vector<string>> &dq, deque<map<string, int>> &dq1, atomic <in
 
 }
 
-int finalConsumer(deque<map<string, int>>& dq1, map<string, int>& wordsMap, atomic <int> &numT) {
+int mergeMapsConsumer(deque<map<string, int>>& dq1, map<string, int>& wordsMap, atomic <int> &numT) {
 
     while(true) {
         unique_lock<mutex> luk1(mtx1);
@@ -226,18 +226,18 @@ int main() {
         return 1;
     }
 
-    threads.emplace_back(producer, ref(data_file), ref(dq));
+    threads.emplace_back(fileReaderProducer, ref(data_file), ref(dq));
 
     int thrIter = 1;
     while(thrIter != threads_n-1){
-        threads.emplace_back( consumer, ref(dq), ref(dq1), ref(numT));
+        threads.emplace_back( countWordsConsumer, ref(dq), ref(dq1), ref(numT));
         thrIter++;
         //cout<<thrIter<<endl;
     }
 
     //std::this_thread::sleep_for(std::chrono::milliseconds(1));
     // threads.emplace_back(finalConsumer, ref(dq1), ref(wordsMap), ref(numT));
-    finalConsumer(dq1, wordsMap, numT);
+    mergeMapsConsumer(dq1, wordsMap, numT);
 
     for (auto& th : threads) {
         th.join();
