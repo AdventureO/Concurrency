@@ -37,12 +37,7 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<chrono::microseconds>(d).count();
 }
 
-int producer(const string& filename, deque<vector<string>>& dq) {
-    fstream file(filename);
-    if (!file.is_open()) {
-        cout << "error reading from file";
-        return  0;
-    }
+int producer(ifstream& file, deque<vector<string>>& dq) {
     string line;
     vector<string> lines;
     int counter = 0;
@@ -197,7 +192,6 @@ T str_to_val(const string& s)
     return res;
 }
 
-#define CHECK_READED_CONFIGURATION
 int main() {
     auto config = read_config("data_input_conc.txt");
 
@@ -211,7 +205,7 @@ int main() {
     int    threads_n = str_to_val<int>(config["threads"]);
     atomic<int> numT{threads_n-2};
 
-#ifdef CHECK_READED_CONFIGURATION
+#ifdef CHECK_READ_CONFIGURATION
     for(auto& option: config)
     {
         cout << option.first << "\t" << option.second << endl;
@@ -225,7 +219,14 @@ int main() {
     vector<thread> threads;
 
     auto startProducer = get_current_time_fenced(); //<===
-    threads.emplace_back(producer, cref(infile), ref(dq));
+
+    ifstream data_file(infile);
+    if (!data_file.is_open()) {
+        cerr << "Error reading from file: " << infile << endl;
+        return 1;
+    }
+
+    threads.emplace_back(producer, ref(data_file), ref(dq));
 
     int thrIter = 1;
     while(thrIter != threads_n-1){
