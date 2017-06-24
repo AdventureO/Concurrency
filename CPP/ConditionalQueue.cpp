@@ -185,6 +185,18 @@ map<string,string> read_config(const string& filename)
 
 }
 
+template<typename T>
+T str_to_val(const string& s)
+{
+    stringstream ss(s);
+    T res;
+    ss >> res;
+    if(!ss){
+        throw std::runtime_error("Failed converting: " + s);
+    }
+    return res;
+}
+
 #define CHECK_READED_CONFIGURATION
 int main() {
     auto config = read_config("data_input_conc.txt");
@@ -193,11 +205,11 @@ int main() {
     deque<map<string, int>> dq1;
     map<string, int> wordsMap;
 
-    string infile    =    config["infile"];
-    string out_by_a  =  config["out_by_a"];
-    string out_by_n  =  config["out_by_n"];
-    int    threads_n = stoi(config["threads"]);
-    atomic<int> numT = {threads_n-2};
+    string infile    = config["infile"];
+    string out_by_a  = config["out_by_a"];
+    string out_by_n  = config["out_by_n"];
+    int    threads_n = str_to_val<int>(config["threads"]);
+    atomic<int> numT{threads_n-2};
 
 #ifdef CHECK_READED_CONFIGURATION
     for(auto& option: config)
