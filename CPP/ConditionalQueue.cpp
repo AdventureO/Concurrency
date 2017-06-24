@@ -223,7 +223,8 @@ int main() {
     }
 
     //std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    threads.emplace_back(finalConsumer, ref(dq1), ref(wordsMap), ref(numT));
+    // threads.emplace_back(finalConsumer, ref(dq1), ref(wordsMap), ref(numT));
+    finalConsumer(dq1, wordsMap, numT);
 
     for (auto& th : threads) {
         th.join();
