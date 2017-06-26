@@ -12,13 +12,15 @@
 #include <cassert>
 #include <cctype>
 
+#include <unordered_map>
+
 using namespace std;
 
 
 
 
 //! Intentionally trivial.
-//! Спробе перетворити таку конструкцію в повноцінну чергу
+//! Спроба перетворити таку конструкцію в повноцінну чергу
 //! мала б сенс в реальному коді, але тут вноситиме додаткову
 //! неоднозначність -- "А ми вже достатньо добре її реалізували?"
 template<typename T, typename Container=deque<T>>
@@ -198,6 +200,58 @@ T str_to_val(const string& s)
     return res;
 }
 
+
+//! std::map is sorted by keys. So we need other function for unorderd_map
+template<typename KeyT, typename ValueT>
+void write_sorted_by_key(ostream& file, const map<KeyT, ValueT>& data)
+{
+    for(auto& item: data)
+        file << item.first << ": " << item.second << '\n';
+    // '\n' does not flushes the buffers, so is faster than endl.
+}
+
+
+//! Or should we enforce sort for any map-like container, except std::map?
+template<typename KeyT, typename ValueT>
+void write_sorted_by_key(ostream& file, const unordered_map<KeyT, ValueT>& data)
+{
+    using VectorOfItemsT = vector< std::pair<KeyT, ValueT> >;
+    VectorOfItemsT VectorOfItems;
+    for(auto& item: data)
+    {
+        VectorOfItems.emplace_back(item);
+    }
+    sort(VectorOfItems.begin(), VectorOfItems.end());
+
+    for(auto& item: VectorOfItems)
+        file << item.first << ": " << item.second << '\n';
+}
+
+
+//! Sorting any map here, so need just complete map type --
+//! no need to overload over map/unordered_map
+template<typename MapT>
+void write_sorted_by_value(ostream& file, const MapT& data)
+{
+    using VectorOfItemsT = vector< std::pair<typename MapT::key_type,
+                                             typename MapT::mapped_type> >;
+    VectorOfItemsT VectorOfItems;
+    for(auto& item: data)
+    {
+        VectorOfItems.emplace_back(item);
+    }
+    sort(VectorOfItems.begin(), VectorOfItems.end(),
+         [] (const typename VectorOfItemsT::value_type &a,
+             const typename VectorOfItemsT::value_type &b) {
+                return a.second > b.second;
+          }
+    );
+
+    for(auto& item: VectorOfItems)
+        file << item.first << ": " << item.second << '\n';
+}
+
+
 int main() {
     auto config = read_config("data_input_conc.txt");
 
@@ -249,30 +303,17 @@ int main() {
 
 
 
-    ofstream file;
-    file.open(out_by_a);
+    ofstream file(out_by_a);
     if (!file) {
         cerr << "Could not open file."<< endl;
         return 1;
     }
-    for(map<string, int> :: iterator i = wordsMap.begin(); i != wordsMap.end(); i++){
-        file << i->first << ": " << i->second << endl;
-    }
+    write_sorted_by_key(file, wordsMap);
     file.close();
 
-    vector<pair<string, int>> VectorOfPair;
-    for(map<string, int> :: iterator i = wordsMap.begin(); i != wordsMap.end(); i++){
-        VectorOfPair.push_back(make_pair(i -> first, i-> second));
-    }
-    sort(VectorOfPair.begin(), VectorOfPair.end(), [] (const pair<string,int> &a, const pair<string,int> &b) {
-        return a.second > b.second;
-    });
-
     //Write in file words by alphabet
-    ofstream file2;
-    file2.open(out_by_n);
-    for (auto p = VectorOfPair.begin(); p != VectorOfPair.end(); p++)
-        file2 << p->first << ": " << p->second << endl;
+    ofstream file2(out_by_n);
+    write_sorted_by_value(file2, wordsMap);
     file2.close();
 
     auto finishConsumer = get_current_time_fenced();
