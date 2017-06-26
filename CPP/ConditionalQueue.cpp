@@ -92,6 +92,12 @@ int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq) {
     return 0;
 }
 
+void cleanWord(string &word)
+{
+    word.erase( remove_if(word.begin(), word.end(), ::ispunct), word.end() );
+    transform(word.begin(), word.end(), word.begin(), ::tolower);
+}
+
 int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
                        SimpleQueStruct<map<string, int>> &dq1) {
     while(true) {
@@ -106,13 +112,7 @@ int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
                 string word;
                 istringstream iss(v[i]);
                 while (iss >> word) {
-                    auto to = begin(word);
-                    for (auto from : word)
-                        if (!ispunct(from))
-                            *to++ = from;
-                    word.resize(distance(begin(word), to));
-                    transform(word.begin(), word.end(), word.begin(), ::tolower);
-                    // lock_guard<mutex> lg(mtx2); // WTF?! It's local!
+                    cleanWord(word);
                     ++localMap[word];
                 }
             }
