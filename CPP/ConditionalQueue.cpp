@@ -76,14 +76,13 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<chrono::microseconds>(d).count();
 }
 
-int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq) {
+int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, unsigned blockSize) {
     string line;
     vector<string> lines;
-    size_t linesBlock = 100;
     while(getline(file, line))
     {
         lines.push_back(move(line));
-        if (lines.size() == linesBlock)
+        if (lines.size() == blockSize)
         {
             dq.enque(move(lines)); // Move to avoid copy of LARGE objects
             lines.clear(); //! Usefull also after move: https://stackoverflow.com/questions/27376623/can-you-reuse-a-moved-stdstring
@@ -263,7 +262,8 @@ int main() {
     string infile    = config["infile"];
     string out_by_a  = config["out_by_a"];
     string out_by_n  = config["out_by_n"];
-    int    threads_n = str_to_val<int>(config["threads"]);
+    int    blockSize = str_to_val<unsigned>(config["blockSize"]);
+    int    threads_n = str_to_val<unsigned>(config["threads"]);
 
 #ifdef CHECK_READ_CONFIGURATION
     for(auto& option: config)
@@ -290,7 +290,7 @@ int main() {
         return 1;
     }
 
-    threads.emplace_back(fileReaderProducer, ref(data_file), ref(readBlocksQ));
+    threads.emplace_back(fileReaderProducer, ref(data_file), ref(readBlocksQ), blockSize);
 
     int thrIter = 1;
     while(thrIter != threads_n-1){
