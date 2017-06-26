@@ -9,21 +9,36 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
-//#include <cstring>
+#include <cassert>
 #include <cctype>
 
 using namespace std;
 
-condition_variable cv;
-condition_variable cv1;
-mutex mtx;
-mutex mtx1;
-mutex mtx2;
-mutex mtx3;
-mutex mtx4;
-mutex mtx5;
-atomic <bool> isReady = {false};
-atomic <bool> isReady1 = {false};
+
+
+
+//! Intentionally trivial.
+//! Спробе перетворити таку конструкцію в повноцінну чергу
+//! мала б сенс в реальному коді, але тут вноситиме додаткову
+//! неоднозначність -- "А ми вже достатньо добре її реалізували?"
+template<typename T, typename Container=deque<T>>
+struct SimpleQueStruct
+{
+    Container que;
+    condition_variable cv;
+    mutex mtx;
+    atomic<int> left_threads;
+
+    SimpleQueStruct(int thr): left_threads(thr){}
+
+    ~SimpleQueStruct(){
+        // Just sanity check.
+        assert( left_threads == 0 && "Que destroyed before all users stopped.");
+    }
+};
+
+
+
 
 inline std::chrono::high_resolution_clock::time_point get_current_time_fenced() {
     std::atomic_thread_fence(memory_order_seq_cst);
@@ -37,7 +52,7 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<chrono::microseconds>(d).count();
 }
 
-int fileReaderProducer(ifstream& file, deque<vector<string>>& dq) {
+int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq) {
     string line;
     vector<string> lines;
     int counter = 0;
@@ -48,10 +63,10 @@ int fileReaderProducer(ifstream& file, deque<vector<string>>& dq) {
         if (counter == linesBlock)
         {
             {
-                lock_guard<mutex> guard(mtx);
-                dq.push_back(lines);
+                lock_guard<mutex> guard(dq.mtx);
+                dq.que.push_back(lines);
             }
-            cv.notify_one();
+            dq.cv.notify_one();
             lines.clear();
             counter = 0;
         } else
@@ -62,25 +77,26 @@ int fileReaderProducer(ifstream& file, deque<vector<string>>& dq) {
     if (lines.size() != 0)
     {
         {
-            lock_guard<mutex> ll(mtx);
-            dq.push_back(lines);
+            lock_guard<mutex> ll(dq.mtx);
+            dq.que.push_back(lines);
         }
-        cv.notify_one();
+        dq.cv.notify_one();
     }
 
-    //notify all consumers that words have finished
-    cv.notify_all();
-    isReady = true;
+    //notify all consumers that file has "depleted"
+    --dq.left_threads;
+    dq.cv.notify_all();
     return 0;
 }
 
-int countWordsConsumer(deque<vector<string>> &dq, deque<map<string, int>> &dq1, atomic <int> &numT) {
+int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
+                       SimpleQueStruct<map<string, int>> &dq1) {
     map<string, int> localMap;
     while(true) {
-        unique_lock<mutex> luk(mtx);
-        if (!dq.empty()) {
-            vector<string> v{dq.front()};
-            dq.pop_front();
+        unique_lock<mutex> luk(dq.mtx);
+        if (!dq.que.empty()) {
+            vector<string> v{dq.que.front()};
+            dq.que.pop_front();
             luk.unlock();
             string word;
 
@@ -93,59 +109,55 @@ int countWordsConsumer(deque<vector<string>> &dq, deque<map<string, int>> &dq1, 
                             *to++ = from;
                     word.resize(distance(begin(word), to));
                     transform(word.begin(), word.end(), word.begin(), ::tolower);
-                    lock_guard<mutex> lg(mtx2);
+                    // lock_guard<mutex> lg(mtx2); // WTF?! It's local!
                     ++localMap[word];
                 }
             }
 
             {
-                lock_guard<mutex> lg(mtx1);
-                dq1.push_back(localMap);
+                lock_guard<mutex> lg(dq1.mtx);
+                dq1.que.push_back(localMap);
 
             }
-            cv1.notify_one();
+            dq1.cv.notify_one();
 
 
         } else {
-            if(isReady) {
+            if(dq.left_threads == 0) {
                 break;
             }
-            cv.wait(luk);
+            dq.cv.wait(luk);
         }
     }
-    cv1.notify_all();
-    numT --;
-  //  cout<<numT<<endl;
+    --dq1.left_threads;
+    dq1.cv.notify_all();
     return 0;
 
 }
 
-int mergeMapsConsumer(deque<map<string, int>>& dq1, map<string, int>& wordsMap, atomic <int> &numT) {
+void mergeMapsConsumer(SimpleQueStruct<map<string, int>>& dq1, map<string, int>& wordsMap) {
 
     while(true) {
-        unique_lock<mutex> luk1(mtx1);
-            //cout<<"\t" << numT<<endl;
-        if (!dq1.empty()) {
-            map<string, int> v1{dq1.front()};
-            dq1.pop_front();
+        unique_lock<mutex> luk1(dq1.mtx);
+        if (!dq1.que.empty()) {
+            map<string, int> v1{dq1.que.front()};
+            dq1.que.pop_front();
             luk1.unlock();
 
             for (map<string,int>::iterator it=v1.begin(); it!=v1.end(); ++it) {
-                lock_guard<mutex> lg(mtx3);
+                //lock_guard<mutex> lg(mtx3); // Не обов'язкове -- пише один потік!
                 wordsMap[it->first] += it->second;
             }
 
 
         } else {
-            if ((numT == 0)&&(dq1.empty())) {
-                //cout<<"HERE"<<endl;
+            if ((dq1.left_threads == 0)&&(dq1.que.empty())) {
                 break;
             }
-            cv1.wait(luk1);
+            dq1.cv.wait(luk1);
         }
     }
-//    cout << "\tTipaFone\n" << endl;
-    return 0;
+
 
 }
 
@@ -195,15 +207,11 @@ T str_to_val(const string& s)
 int main() {
     auto config = read_config("data_input_conc.txt");
 
-    deque<vector<string>> dq;
-    deque<map<string, int>> dq1;
-    map<string, int> wordsMap;
 
     string infile    = config["infile"];
     string out_by_a  = config["out_by_a"];
     string out_by_n  = config["out_by_n"];
     int    threads_n = str_to_val<int>(config["threads"]);
-    atomic<int> numT{threads_n-2};
 
 #ifdef CHECK_READ_CONFIGURATION
     for(auto& option: config)
@@ -216,9 +224,13 @@ int main() {
     cout << "threads_n: " << threads_n << endl;
 #endif
 
+    auto startProducer = get_current_time_fenced(); //<===
+
     vector<thread> threads;
 
-    auto startProducer = get_current_time_fenced(); //<===
+    map<string, int> wordsMap;
+    SimpleQueStruct<vector<string>> readBlocksQ{1};
+    SimpleQueStruct<map<string, int>> localDictsQ{threads_n-2};
 
     ifstream data_file(infile);
     if (!data_file.is_open()) {
@@ -226,18 +238,16 @@ int main() {
         return 1;
     }
 
-    threads.emplace_back(fileReaderProducer, ref(data_file), ref(dq));
+    threads.emplace_back(fileReaderProducer, ref(data_file), ref(readBlocksQ));
 
     int thrIter = 1;
     while(thrIter != threads_n-1){
-        threads.emplace_back( countWordsConsumer, ref(dq), ref(dq1), ref(numT));
+        threads.emplace_back( countWordsConsumer, ref(readBlocksQ), ref(localDictsQ) );
         thrIter++;
-        //cout<<thrIter<<endl;
     }
 
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    // threads.emplace_back(finalConsumer, ref(dq1), ref(wordsMap), ref(numT));
-    mergeMapsConsumer(dq1, wordsMap, numT);
+    // threads.emplace_back(mergeMapsConsumer, ref(localDictsQ), ref(wordsMap));
+    mergeMapsConsumer(localDictsQ, wordsMap);
 
     for (auto& th : threads) {
         th.join();
