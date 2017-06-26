@@ -16,8 +16,13 @@
 
 using namespace std;
 
+#define USE_UNORDERED_MAP
 
-
+#ifdef USE_UNORDERED_MAP
+using map_type = unordered_map<string, unsigned int>;
+#else // Default
+using map_type = map<string, unsigned int>;
+#endif
 
 //! Intentionally trivial.
 //! Спроба перетворити таку конструкцію в повноцінну чергу
@@ -101,18 +106,18 @@ void cleanWord(string &word)
 }
 
 int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
-                       SimpleQueStruct<map<string, int>> &dq1) {
+                       SimpleQueStruct<map_type> &dq1) {
     while(true) {
-        map<string, int> localMap;
+        map_type localMap;
         unique_lock<mutex> luk(dq.mtx);
         if (!dq.que.empty()) {
             vector<string> v{move(dq.que.front())};
             dq.que.pop_front();
             luk.unlock();            
 
-            for (size_t i = 0; i < v.size(); i++) {
+            for (const auto& in_word: v) {
                 string word;
-                istringstream iss(v[i]);
+                istringstream iss(in_word);
                 while (iss >> word) {
                     cleanWord(word);
                     ++localMap[word];
@@ -131,18 +136,17 @@ int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
 
 }
 
-void mergeMapsConsumer(SimpleQueStruct<map<string, int>>& dq1, map<string, int>& wordsMap) {
+void mergeMapsConsumer(SimpleQueStruct<map_type>& dq1, map_type& wordsMap) {
 
     while(true) {
         unique_lock<mutex> luk1(dq1.mtx);
         if (!dq1.que.empty()) {
-            map<string, int> v1{move(dq1.que.front())};
+            map_type v1{move(dq1.que.front())};
             dq1.que.pop_front();
             luk1.unlock();
 
-            for (map<string,int>::iterator it=v1.begin(); it!=v1.end(); ++it) {
-                //lock_guard<mutex> lg(mtx3); // Не обов'язкове -- пише один потік!
-                wordsMap[it->first] += it->second;
+            for (auto& item: v1) {
+                wordsMap[item.first] += item.second;
             }
 
 
@@ -276,9 +280,9 @@ int main() {
 
     vector<thread> threads;
 
-    map<string, int> wordsMap;
+    map_type wordsMap;
     SimpleQueStruct<vector<string>> readBlocksQ{1};
-    SimpleQueStruct<map<string, int>> localDictsQ{threads_n-2};
+    SimpleQueStruct<map_type> localDictsQ{threads_n-2};
 
     ifstream data_file(infile);
     if (!data_file.is_open()) {
