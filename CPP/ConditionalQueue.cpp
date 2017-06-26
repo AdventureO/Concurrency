@@ -35,6 +35,23 @@ struct SimpleQueStruct
         // Just sanity check.
         assert( left_threads == 0 && "Que destroyed before all users stopped.");
     }
+
+    //! So-called universal reference -- template + &&, moves if possible.
+    //! Compiles only for rvalue references, for example temporatire and move-ed variables
+    void enque(T&& lines )
+    {
+        {
+            lock_guard<mutex> ll(mtx);
+            que.push_back(move(lines));
+        }
+        cv.notify_one();
+    }
+
+    void one_thread_done()
+    {
+        --left_threads;
+        cv.notify_all();
+    }
 };
 
 
@@ -55,37 +72,23 @@ inline long long to_us(const D& d) {
 int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq) {
     string line;
     vector<string> lines;
-    int counter = 0;
-    int linesBlock = 100;
+    size_t linesBlock = 100;
     while(getline(file, line))
     {
-        lines.push_back(line);
-        if (counter == linesBlock)
+        lines.push_back(move(line));
+        if (lines.size() == linesBlock)
         {
-            {
-                lock_guard<mutex> guard(dq.mtx);
-                dq.que.push_back(lines);
-            }
-            dq.cv.notify_one();
-            lines.clear();
-            counter = 0;
-        } else
-        {
-            counter++;
+            dq.enque(move(lines)); // Move to avoid copy of LARGE objects
+            lines.clear(); //! Usefull also after move: https://stackoverflow.com/questions/27376623/can-you-reuse-a-moved-stdstring
         }
     }
     if (lines.size() != 0)
     {
-        {
-            lock_guard<mutex> ll(dq.mtx);
-            dq.que.push_back(lines);
-        }
-        dq.cv.notify_one();
+        dq.enque(move(lines));
     }
 
     //notify all consumers that file has "depleted"
-    --dq.left_threads;
-    dq.cv.notify_all();
+    dq.one_thread_done();
     return 0;
 }
 
@@ -93,15 +96,14 @@ int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
                        SimpleQueStruct<map<string, int>> &dq1) {
     while(true) {
         map<string, int> localMap;
-
         unique_lock<mutex> luk(dq.mtx);
         if (!dq.que.empty()) {
-            vector<string> v{dq.que.front()};
+            vector<string> v{move(dq.que.front())};
             dq.que.pop_front();
-            luk.unlock();
-            string word;
+            luk.unlock();            
 
-            for (int i = 0; i < v.size(); i++) {
+            for (size_t i = 0; i < v.size(); i++) {
+                string word;
                 istringstream iss(v[i]);
                 while (iss >> word) {
                     auto to = begin(word);
@@ -114,15 +116,7 @@ int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
                     ++localMap[word];
                 }
             }
-
-            {
-                lock_guard<mutex> lg(dq1.mtx);
-                dq1.que.push_back(localMap);
-
-            }
-            dq1.cv.notify_one();
-
-
+            dq1.enque(move(localMap)); // No need to clear -- recreated on next iteration. But be carefull!
         } else {
             if(dq.left_threads == 0) {
                 break;
@@ -130,8 +124,7 @@ int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
             dq.cv.wait(luk);
         }
     }
-    --dq1.left_threads;
-    dq1.cv.notify_all();
+    dq1.one_thread_done();
     return 0;
 
 }
@@ -141,7 +134,7 @@ void mergeMapsConsumer(SimpleQueStruct<map<string, int>>& dq1, map<string, int>&
     while(true) {
         unique_lock<mutex> luk1(dq1.mtx);
         if (!dq1.que.empty()) {
-            map<string, int> v1{dq1.que.front()};
+            map<string, int> v1{move(dq1.que.front())};
             dq1.que.pop_front();
             luk1.unlock();
 
@@ -152,7 +145,7 @@ void mergeMapsConsumer(SimpleQueStruct<map<string, int>>& dq1, map<string, int>&
 
 
         } else {
-            if ((dq1.left_threads == 0)&&(dq1.que.empty())) {
+            if ((dq1.left_threads == 0)) {
                 break;
             }
             dq1.cv.wait(luk1);
