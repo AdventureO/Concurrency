@@ -91,8 +91,9 @@ int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq) {
 
 int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
                        SimpleQueStruct<map<string, int>> &dq1) {
-    map<string, int> localMap;
     while(true) {
+        map<string, int> localMap;
+
         unique_lock<mutex> luk(dq.mtx);
         if (!dq.que.empty()) {
             vector<string> v{dq.que.front()};
