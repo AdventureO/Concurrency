@@ -15,4 +15,4 @@ set(CLEAN_WORDS_FILES "clean_words.cpp" "clean_words.hpp")
 
 add_executable(${PROJECT_NAME} "ConditionalQueue.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
 
-#add_executable(seq_etalon "seq_etalon.cpp")
+add_executable(seq_etalon "seq_etalon.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
