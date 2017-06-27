@@ -27,18 +27,17 @@ using map_type = unordered_map<string, unsigned int>;
 using map_type = map<string, unsigned int>;
 #endif
 
-//! Intentionally trivial.
-//! Спроба перетворити таку конструкцію в повноцінну чергу
-//! мала б сенс в реальному коді, але тут вноситиме додаткову
-//! неоднозначність -- "А ми вже достатньо добре її реалізували?"
+//! Rather simple.
+//! Не втримався, каюся, таки написав чергу...
 template<typename T, typename Container=deque<T>>
-struct SimpleQueStruct
+class SimpleQueStruct
 {
+private:
     Container que;
     condition_variable cv;
     mutex mtx;
     atomic<int> left_threads;
-
+public:
     SimpleQueStruct(int thr): left_threads(thr){}
 
     ~SimpleQueStruct(){
@@ -62,6 +61,35 @@ struct SimpleQueStruct
         --left_threads;
         cv.notify_all();
     }
+
+    //! Returns true and saves data to argument, if have one
+    //! returns false otherwise.
+    bool dequeue(T& lines )
+    {
+        while(true)
+        {
+            unique_lock<mutex> luk(mtx);
+            if (!que.empty()) {
+                lines=move(que.front());
+                que.pop_front();
+                //luk.unlock();
+                return true;
+            } else {
+                if(left_threads == 0) {
+                    return false;
+                }
+                cv.wait(luk);
+            }
+        }
+
+    }
+
+    size_t size() const
+    {
+        return que.size();
+    }
+
+
 };
 
 
@@ -79,7 +107,7 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<chrono::microseconds>(d).count();
 }
 
-int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, size_t blockSize) {
+void fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, size_t blockSize) {
     string line;
     vector<string> lines;
     while(getline(file, line))
@@ -96,9 +124,7 @@ int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, size
         dq.enque(move(lines));
     }
 
-    //notify all consumers that file has "depleted"
     dq.one_thread_done();
-    return 0;
 }
 
 void cleanWord(string &word)
@@ -107,59 +133,34 @@ void cleanWord(string &word)
     transform(word.begin(), word.end(), word.begin(), ::tolower);
 }
 
-int countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
+void countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
                        SimpleQueStruct<map_type> &dq1) {
-    while(true) {
-        map_type localMap;
-        unique_lock<mutex> luk(dq.mtx);
-        if (!dq.que.empty()) {
-            vector<string> v{move(dq.que.front())};
-            dq.que.pop_front();
-            luk.unlock();            
 
-            for (const auto& in_word: v) {
-                string word;
-                istringstream iss(in_word);
-                while (iss >> word) {
-                    cleanWord(word);
-                    ++localMap[word];
-                }
+    vector<string> v;
+    while(dq.dequeue(v))
+    {
+        map_type localMap;
+        for (const auto& in_word: v) {
+            string word;
+            istringstream iss(in_word);
+            while (iss >> word) {
+                cleanWord(word);
+                ++localMap[word];
             }
-            dq1.enque(move(localMap)); // No need to clear -- recreated on next iteration. But be carefull!
-        } else {
-            if(dq.left_threads == 0) {
-                break;
-            }
-            dq.cv.wait(luk);
         }
+        dq1.enque(move(localMap)); // No need to clear -- recreated on next iteration. But be carefull!
     }
     dq1.one_thread_done();
-    return 0;
-
-}
+   }
 
 void mergeMapsConsumer(SimpleQueStruct<map_type>& dq1, map_type& wordsMap) {
-
-    while(true) {
-        unique_lock<mutex> luk1(dq1.mtx);
-        if (!dq1.que.empty()) {
-            map_type v1{move(dq1.que.front())};
-            dq1.que.pop_front();
-            luk1.unlock();
-
-            for (auto& item: v1) {
-                wordsMap[item.first] += item.second;
-            }
-
-
-        } else {
-            if ((dq1.left_threads == 0)) {
-                break;
-            }
-            dq1.cv.wait(luk1);
+    map_type v1;
+    while(dq1.dequeue(v1))
+    {
+        for (auto& item: v1) {
+            wordsMap[item.first] += item.second;
         }
     }
-
 
 }
 
