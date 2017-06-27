@@ -79,7 +79,7 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<chrono::microseconds>(d).count();
 }
 
-int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, unsigned blockSize) {
+int fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, size_t blockSize) {
     string line;
     vector<string> lines;
     while(getline(file, line))
@@ -173,7 +173,7 @@ map<string,string> read_config(const string& filename)
     string str;
     while( getline(confFile,str) )
     {
-        auto cut_pos = str.find("#");
+        auto cut_pos = str.find('#');
         if(cut_pos!=string::npos)
             str.erase(cut_pos);
         auto cut_iter = remove_if(str.begin(), str.end(), ::isspace);
@@ -296,7 +296,7 @@ bool compareFiles(const string& file1, const string& file2)
     if( !f1.eof() )
     {
         do
-        {
+        {			
             str1.erase( remove_if(str1.begin(), str1.end(), ::isspace), str1.end() );
             if(!str1.empty())
             {
@@ -310,7 +310,7 @@ bool compareFiles(const string& file1, const string& file2)
     {
         do
         {
-            str1.erase( remove_if(str2.begin(), str2.end(), ::isspace), str2.end() );
+            str2.erase( remove_if(str2.begin(), str2.end(), ::isspace), str2.end() );
             if(!str2.empty())
             {
                 cerr << "Excess line in file 1: " << str2 << endl;
@@ -340,7 +340,6 @@ bool compareFiles(const string& file1, const string& file2)
 int main() {
     auto config = read_config("data_input_conc.txt");
 
-
     string infile    = config["infile"];
     string out_by_a  = config["out_by_a"];
     string out_by_n  = config["out_by_n"];
@@ -348,17 +347,6 @@ int main() {
     int    threads_n = str_to_val<unsigned>(config["threads"]);
 
     string etalon_a_file  = config["etalon_a_file"];
-
-#ifdef CHECK_READ_CONFIGURATION
-    for(auto& option: config)
-    {
-        cout << option.first << "\t" << option.second << endl;
-    }
-    cout << "infile: " << infile << endl;
-    cout << "out_by_a: " << out_by_a << endl;
-    cout << "out_by_n: " << out_by_n << endl;
-    cout << "threads_n: " << threads_n << endl;
-#endif
 
     auto startProducer = get_current_time_fenced(); //<===
 
@@ -376,6 +364,7 @@ int main() {
 
     threads.emplace_back(fileReaderProducer, ref(data_file), ref(readBlocksQ), blockSize);
 
+
     int thrIter = 1;
     while(thrIter != threads_n-1){
         threads.emplace_back( countWordsConsumer, ref(readBlocksQ), ref(localDictsQ) );
@@ -388,8 +377,6 @@ int main() {
     for (auto& th : threads) {
         th.join();
     }
-
-
 
     ofstream file(out_by_a);
     if (!file) {
