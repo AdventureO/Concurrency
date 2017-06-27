@@ -108,22 +108,8 @@ int main(int argc, char *argv[]) {
 
     auto finished = get_current_time_fenced();
 
-    ofstream file(out_by_a);
-    if (!file) {
-        cerr << "Could not open file."<< endl;
-        return 1;
-    }
-    write_sorted_by_key(file, wordsMap);
-    file.close();
-
-    //Write in file words by alphabet
-    ofstream file2(out_by_n);
-    if (!file2) {
-        cerr << "Could not open file " << out_by_n << endl;
-        return 1;
-    }
-    write_sorted_by_value(file2, wordsMap);
-    file2.close();
+    write_sorted_by_key(out_by_a, wordsMap);
+    write_sorted_by_value(out_by_n, wordsMap);
 
     auto counting = finished - readed;
     auto total = finished - start;

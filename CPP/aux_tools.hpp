@@ -52,6 +52,16 @@ void write_sorted_by_key( std::ostream& file, const std::unordered_map<KeyT, Val
 }
 
 
+template<typename MapT>
+void write_sorted_by_key( const std::string& filename, const MapT& data )
+{
+    std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error( "Could not open file " + filename);
+    }
+    write_sorted_by_key(file, data);
+}
+
 //! Sorting any std::map here, so need just complete std::map type --
 //! no need to overload over std::map/unordered_map
 template<typename mapT>
@@ -75,6 +85,15 @@ void write_sorted_by_value( std::ostream& file, const mapT& data)
         file << item.first << ": " << item.second << '\n';
 }
 
+template<typename MapT>
+void write_sorted_by_value( const std::string& filename, const MapT& data )
+{
+    std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error( "Could not open file " + filename);
+    }
+    write_sorted_by_value(file, data);
+}
 
 template<typename T>
 T str_to_val(const std::string& s)

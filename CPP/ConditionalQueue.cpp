@@ -118,9 +118,9 @@ void countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
     while(dq.dequeue(v))
     {
         map_type localMap;
-        for (const auto& in_word: v) {
+        for (auto& in_word: v) {
             string word;
-            istringstream iss(in_word);
+            istringstream iss(move(in_word));
             while (iss >> word) {
                 cleanWord(word);
                 ++localMap[word];
@@ -185,22 +185,8 @@ int main() {
 
     auto finishConsumer = get_current_time_fenced();
 
-    ofstream file(out_by_a);
-    if (!file) {
-        cerr << "Could not open file."<< endl;
-        return 1;
-    }
-    write_sorted_by_key(file, wordsMap);
-    file.close();
-
-    //Write in file words by alphabet
-    ofstream file2(out_by_n);
-    if (!file2) {
-        cerr << "Could not open file " << out_by_n << endl;
-        return 1;
-    }
-    write_sorted_by_value(file2, wordsMap);
-    file2.close();
+    write_sorted_by_key(out_by_a, wordsMap);
+    write_sorted_by_value(out_by_n, wordsMap);
 
     auto total = finishConsumer - startProducer;
 
