@@ -183,6 +183,8 @@ int main() {
         th.join();
     }
 
+    auto finishConsumer = get_current_time_fenced();
+
     ofstream file(out_by_a);
     if (!file) {
         cerr << "Could not open file."<< endl;
@@ -193,13 +195,16 @@ int main() {
 
     //Write in file words by alphabet
     ofstream file2(out_by_n);
+    if (!file2) {
+        cerr << "Could not open file " << out_by_n << endl;
+        return 1;
+    }
     write_sorted_by_value(file2, wordsMap);
     file2.close();
 
-    auto finishConsumer = get_current_time_fenced();
     auto total = finishConsumer - startProducer;
 
-    cout << "Time: " << to_us(total) << endl;
+    cout << "Total time: " << to_us(total) << endl;
 
     bool are_correct = true;
     if( !etalon_a_file.empty() )
