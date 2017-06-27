@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -20,7 +23,7 @@ using map_type = std::map<std::string, unsigned int>;
 #endif
 
 using namespace std;
-mutex mtx;
+
 
 
 vector<string> readData(ifstream& file) {
@@ -33,38 +36,38 @@ vector<string> readData(ifstream& file) {
 }
 
 
-void wordCounter(vector<string>& myVector, size_t start, size_t end, map_type& m)
+template<typename Iter>
+void wordCounter(Iter start, Iter end, map_type& m, mutex& mtx)
 {
     map_type localMp;
 
-    for (size_t i = start; i < end; i++) {
-        {
-            cleanWord(myVector[i]);
-            ++localMp[myVector[i]];
-        }
+    for (auto i = start; i < end; i++) {
+        cleanWord(*i);
+        ++localMp[*i];
     }
     lock_guard<mutex> lg(mtx);
 
     for(auto& item: localMp){
         m[item.first] += item.second;
-
     }
 }
 
 
-vector<size_t> SplitVector(const vector<string>& vec, int n) {
+//! vec is not const, because latter it's iterators will be used to modify it's
+//! elements -- see wordCounter.
+vector<vector<string>::iterator> SplitVector(vector<string>& vec, int n) {
 
-    vector<size_t> outVec;
+    vector<vector<string>::iterator> outVec;
     auto part_length = vec.size() / n;
-    size_t sum = 0;
-    outVec.push_back(0);
+    auto sum = vec.begin();
+    outVec.push_back(vec.begin());
 
     for(int i = 0; i<n-1;++i){
-        sum += part_length;
+        advance(sum, part_length);
         outVec.push_back(sum);
         // cout<<outVec[i]<<endl;
     }
-    outVec.push_back(vec.size());
+    outVec.push_back(vec.end());
     return outVec;
 }
 
@@ -91,14 +94,14 @@ int main(int argc, char *argv[]) {
 
     auto readed = get_current_time_fenced();
 
+    mutex mtx;
     map_type wordsMap;
     vector<thread> threads;
-    vector<size_t> work_parts = SplitVector(words, threads_n);
-    auto startPar = get_current_time_fenced();
-    for (int a = 0; a < work_parts.size()-1; ++a) {
+    auto work_parts = SplitVector(words, threads_n);
 
-        threads.emplace_back( wordCounter, ref(words), work_parts[a],
-                              work_parts[a + 1], ref(wordsMap) );
+    for (auto a = work_parts.begin(); a < work_parts.end()-1; ++a) {
+        threads.emplace_back( wordCounter<vector<string>::iterator>,
+                              *a, *(a + 1), ref(wordsMap), ref(mtx) );
     }
 
     for (auto& th : threads) th.join();
@@ -134,7 +137,5 @@ int main(int argc, char *argv[]) {
         are_correct = compareFiles(out_by_a, etalon_a_file);
     }
     return !are_correct;
-
-    return 0;
 
 }
