@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include <iostream>
 #include <deque>
 #include <atomic>
@@ -255,6 +258,85 @@ void write_sorted_by_value(ostream& file, const MapT& data)
 }
 
 
+//! Compares two files, ignoring spaces.
+//! IT IS BAD FUNCTION. IT PRINTS...
+//! As for now I'm just too lazy to create corresponing
+//! comparison results structure.
+//! Взагалі, ця функція видається мені потворною, але поки переписувати лінь.
+//! Для спрощення прочитати обидва файли у вектори і там порівнювати?
+//! Якщо посортувати -- можна буде ще й різного сортування файли порівнювати.
+//! Але і мінусів при тому багато -- наприклад, губляться рядки відмінносте.
+bool compareFiles(const string& file1, const string& file2)
+{
+    std::ifstream f1(file1);
+    std::ifstream f2(file2);
+
+    if (f1.fail()) {
+        throw std::runtime_error("Failed to open file for comparison: " + file1);
+    }
+    if (f2.fail()) {
+        throw std::runtime_error("Failed to open file for comparison: " + file2);
+    }
+    string str1, str2;
+    size_t cur_line = 0;
+    while(getline(f1, str1), getline(f2, str2), f1 && f2)
+    {
+        str1.erase( remove_if(str1.begin(), str1.end(), ::isspace), str1.end() );
+        str2.erase( remove_if(str2.begin(), str2.end(), ::isspace), str2.end() );
+        if(str1 != str2)
+        {
+            cerr << "Difference at line " << cur_line << endl;
+            cerr << "\t First  file: |" << str1 << "|" << endl;
+            cerr << "\t Second file: |" << str2 << "|" << endl;
+            return false;
+        }
+        ++cur_line;
+    }
+    // Remove empty lines at the end
+    if( !f1.eof() )
+    {
+        do
+        {
+            str1.erase( remove_if(str1.begin(), str1.end(), ::isspace), str1.end() );
+            if(!str1.empty())
+            {
+                cerr << "Excess line in file 1: " << str1 << endl;
+                return false;
+            }
+        }
+        while(getline(f1, str1));
+    }
+    if( !f2.eof() )
+    {
+        do
+        {
+            str1.erase( remove_if(str2.begin(), str2.end(), ::isspace), str2.end() );
+            if(!str2.empty())
+            {
+                cerr << "Excess line in file 1: " << str2 << endl;
+                return false;
+            }
+        }
+        while(getline(f2, str2));
+    }
+
+    if(f1.eof() && f2.eof() )
+    {
+        return true;
+    }
+    else
+    {
+        if( f2.eof() )
+        { // First file is not finished
+            cerr << "First file is longer." << endl;
+        }else
+        { // Second file is not finished
+            cerr << "Second file is longer." << endl;
+        }
+        return false;
+    }
+}
+
 int main() {
     auto config = read_config("data_input_conc.txt");
 
@@ -264,6 +346,8 @@ int main() {
     string out_by_n  = config["out_by_n"];
     int    blockSize = str_to_val<unsigned>(config["blockSize"]);
     int    threads_n = str_to_val<unsigned>(config["threads"]);
+
+    string etalon_a_file  = config["etalon_a_file"];
 
 #ifdef CHECK_READ_CONFIGURATION
     for(auto& option: config)
@@ -324,4 +408,11 @@ int main() {
     auto total = finishConsumer - startProducer;
 
     cout << "Time: " << to_us(total) << endl;
+
+    bool are_correct = true;
+    if( !etalon_a_file.empty() )
+    {
+        are_correct = compareFiles(out_by_a, etalon_a_file);
+    }
+    return !are_correct;
 }

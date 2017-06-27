@@ -4,3 +4,5 @@ out_by_a="res_a.txt"
 out_by_n="res_n.txt"
 threads=5
 blockSize = 100
+
+etalon_a_file = "res_a_etalon.txt"
