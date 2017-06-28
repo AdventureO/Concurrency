@@ -55,14 +55,14 @@ void wordCounter(Iter start, Iter end, map_type& m, mutex& mtx)
 
 //! vec is not const, because latter it's iterators will be used to modify it's
 //! elements -- see wordCounter.
-vector<vector<string>::iterator> SplitVector(vector<string>& vec, unsigned n) {
+vector<vector<string>::iterator> SplitVector(vector<string>& vec, size_t n) {
 
     vector<vector<string>::iterator> outVec;
     auto part_length = vec.size() / n;
     auto sum = vec.begin();
     outVec.push_back(vec.begin());
 
-    for(int i = 0; i<n-1;++i){
+    for(size_t i = 0; i<n-1;++i){
         advance(sum, part_length);
         outVec.push_back(sum);
         // cout<<outVec[i]<<endl;
@@ -75,15 +75,15 @@ vector<vector<string>::iterator> SplitVector(vector<string>& vec, unsigned n) {
 int main(int argc, char *argv[]) {
     auto config = read_config("data_input_conc.txt");
 
-    string infile    = config["infile"];
-    string out_by_a  = config["out_by_a"];
-    string out_by_n  = config["out_by_n"];
-    int    threads_n = str_to_val<unsigned>(config["threads"]);
+    string infile      = config["infile"];
+    string out_by_a    = config["out_by_a"];
+    string out_by_n    = config["out_by_n"];
+    size_t threads_n   = str_to_val<size_t>(config["threads"]);
 
     string etalon_a_file  = config["etalon_a_file"];
 
     auto start = get_current_time_fenced();
-
+ 
     ifstream data_file(infile);
     if (!data_file.is_open()) {
         cerr << "Error reading from file: " << infile << endl;
