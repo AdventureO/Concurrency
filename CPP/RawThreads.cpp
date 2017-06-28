@@ -55,7 +55,7 @@ void wordCounter(Iter start, Iter end, map_type& m, mutex& mtx)
 
 //! vec is not const, because latter it's iterators will be used to modify it's
 //! elements -- see wordCounter.
-vector<vector<string>::iterator> SplitVector(vector<string>& vec, int n) {
+vector<vector<string>::iterator> SplitVector(vector<string>& vec, unsigned n) {
 
     vector<vector<string>::iterator> outVec;
     auto part_length = vec.size() / n;

@@ -95,7 +95,7 @@ public:
 void fileReaderProducer(ifstream& file, SimpleQueStruct<vector<string>>& dq, size_t blockSize) {
     string line;
     vector<string> lines;
-    while(getline(file, line))
+    while(file >> line)
     {
         lines.push_back(move(line));
         if (lines.size() == blockSize)
@@ -118,13 +118,9 @@ void countWordsConsumer(SimpleQueStruct<vector<string>>&dq,
     while(dq.dequeue(v))
     {
         map_type localMap;
-        for (auto& in_word: v) {
-            string word;
-            istringstream iss(move(in_word));
-            while (iss >> word) {
+        for (auto& word: v) {
                 cleanWord(word);
                 ++localMap[word];
-            }
         }
         dq1.enque(move(localMap)); // No need to clear -- recreated on next iteration. But be carefull!
     }
@@ -144,6 +140,8 @@ void mergeMapsConsumer(SimpleQueStruct<map_type>& dq1, map_type& wordsMap) {
 
 
 int main() {
+
+
     auto config = read_config("data_input_conc.txt");
 
     string infile    = config["infile"];
@@ -177,13 +175,15 @@ int main() {
     }
 
     // threads.emplace_back(mergeMapsConsumer, ref(localDictsQ), ref(wordsMap));
-    mergeMapsConsumer(localDictsQ, wordsMap);
+    //mergeMapsConsumer(localDictsQ, wordsMap);
 
     for (auto& th : threads) {
         th.join();
     }
 
-    auto finishConsumer = get_current_time_fenced();
+	mergeMapsConsumer(localDictsQ, wordsMap);
+
+	auto finishConsumer = get_current_time_fenced();
 
     write_sorted_by_key(out_by_a, wordsMap);
     write_sorted_by_value(out_by_n, wordsMap);
@@ -197,5 +197,8 @@ int main() {
     {
         are_correct = compareFiles(out_by_a, etalon_a_file);
     }
+#ifdef _MSC_VER
+	system("pause");
+#endif
     return !are_correct;
 }
