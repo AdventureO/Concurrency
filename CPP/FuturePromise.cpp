@@ -11,183 +11,134 @@
 #include <future>
 #include <algorithm>
 
+#include <map>
+#include <unordered_map>
+
+#include "aux_tools.hpp"
+#include "clean_words.hpp"
 
 using namespace std;
-//g++ read.cpp -pthread -std=c++11
-using words_counter_t = map<string, int>;
-words_counter_t m;
 
+#ifdef USE_UNORDERED_MAP
+using map_type = unordered_map<string, unsigned int>;
+#else // Default
+using map_type = map<string, unsigned int>;
+#endif
 
-void printMap(const words_counter_t &m) {
-    for (auto elem : m) {
-        cout << elem.first << " : " << elem.second << "\n";
+template<typename Iter>
+map_type wordCounter(Iter start, Iter end)
+{
+    map_type localMp;
+
+    for (auto i = start; i < end; ++i) {
+        cleanWord(*i);
+        ++localMp[*i];
     }
+    return localMp;
 }
 
-
-vector<string> open_read(string path) {
-    ifstream myfile;
-    vector<string> words;
-    string word;
-    myfile.open(path);
-    if (!myfile.is_open()) {
-        cerr << "Error" << endl;
-        return words;
-    }
-    string formated_word;
-    while (myfile >> word) {
-        words.push_back(word);
-    }
-    myfile.close();
-    return words;
-}
-
-void write_to_file(const words_counter_t &m, string path) {
-    ofstream myfile;
-    myfile.open(path);
-    for (auto elem : m) {
-        myfile << elem.first << "    " << elem.second << "\n";
-    }
-    myfile.close();
-}
-
-words_counter_t mapper(int l, int r, vector<string> &words) {
-    words_counter_t mp;
-    for (; l <= r; ++l) {
-        string y = words[l];
-        y.erase(remove_if(y.begin(), y.end(), [](char x) {return !isalpha(x);} ),y.end() );
-        transform(y.begin(), y.end(), y.begin(), ::tolower);
-        ++mp[y];
-    }
-    return mp;
-
-}
-
-void reducer( words_counter_t &master, const words_counter_t& mp){
+void reducer( map_type &master, const map_type& mp){
     for (auto w: mp) {
         master[w.first] += w.second;
     }
 }
 
-
-void worker2(int l, int r, vector<string> &words,
-             promise<words_counter_t> p){
-    auto res = mapper(l, r, words);
-    p.set_value(res);
+template<typename Iter>
+void wordCounterWrapper(Iter start, Iter end, promise<map_type> p){
+    p.set_value( wordCounter(start, end) );
 }
 
-
-vector<int> SplitVector(const vector<string>& vec, int n) {
-
-    vector<int> outVec;
-    int length = int(vec.size())/ n;
-    int count = 0;
-    int sum = 0;
-
-    outVec.push_back(0);
-    while(count != n - 1){
-        sum += length;
-        outVec.push_back(sum);
-        //cout<<outVec[count]<<endl;
-        count++;
+vector<string> readData(ifstream& file) {
+    vector<string> words;
+    string word;
+    while (file >> word) {
+        words.push_back(word);
     }
-    outVec.push_back(int(vec.size()));
+    return words;
+}
+
+//! vec is not const, because latter it's iterators will be used to modify it's
+//! elements -- see wordCounter.
+vector<vector<string>::iterator> SplitVector(vector<string>& vec, unsigned n) {
+
+    vector<vector<string>::iterator> outVec;
+    auto part_length = vec.size() / n;
+    auto sum = vec.begin();
+    outVec.push_back(vec.begin());
+
+    for(int i = 0; i<n-1;++i){
+        advance(sum, part_length);
+        outVec.push_back(sum);
+        // cout<<outVec[i]<<endl;
+    }
+    outVec.push_back(vec.end());
     return outVec;
 }
 
-inline std::chrono::high_resolution_clock::time_point get_current_time_fenced() {
-    std::atomic_thread_fence(memory_order_seq_cst);
-    auto res_time = std::chrono::high_resolution_clock::now();
-    std::atomic_thread_fence(memory_order_seq_cst);
-    return res_time;
-}
 
-template<class D>
-inline long long to_us(const D& d) {
-    return std::chrono::duration_cast<chrono::microseconds>(d).count();
-}
+int main(int argc, char *argv[]) {
+    auto config = read_config("data_input_conc.txt");
 
-int main(int argc, char *argv[]) {  // input_file, threads, output_file
-    istringstream ss1(argv[1]);
-    int numT;
-    ss1 >> numT;
-    string input_data[2], infile, out_by;
-    ifstream myFile;
-    myFile.open("data_input.txt");
+    string infile    = config["infile"];
+    string out_by_a  = config["out_by_a"];
+    string out_by_n  = config["out_by_n"];
+    int    threads_n = str_to_val<unsigned>(config["threads"]);
 
-    for(int i = 0; i < 2; i++)
-        myFile >> input_data[i];
-    myFile.close();
-
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < input_data[i].length(); j++) {
-            if (input_data[i][j] == '=')
-                input_data[i][j] = ' ';
-        }
-        stringstream ss(input_data[i]);
-        string temp;
-        int k = 0;
-        while (ss >> temp) {
-            if (k != 0) {
-                stringstream lineStream(temp);
-                string s;
-                getline(lineStream,s,',');
-                s.erase(remove( s.begin(), s.end(), '\"' ), s.end());
-                input_data[i] = s;
-            }
-            k++;
-        }
-    }
-
-    infile = input_data[0];
-    out_by = input_data[1];
-
-
-    vector<string> words;
-    vector< future<words_counter_t> > result_futures;
-
-
-    words = open_read(infile);
+    string etalon_a_file  = config["etalon_a_file"];
 
     auto start = get_current_time_fenced();
 
-    vector<int> list_of_words_amount = SplitVector(words, numT);
+    ifstream data_file(infile);
+    if (!data_file.is_open()) {
+        cerr << "Error reading from file: " << infile << endl;
+        return 1;
+    }
+    vector<string> words{readData(data_file)};
+    data_file.close();
 
-    vector<thread> rthreads;
+    auto readed = get_current_time_fenced();
+
+    map_type wordsMap;
+    vector< future<map_type> > result_futures;
+    vector<thread> threads;
+
+    auto work_parts{SplitVector(words, threads_n)};
 
     auto startPar = get_current_time_fenced();
 
-    for (int i = 0; i < list_of_words_amount.size()-1; ++i) {
-        promise<words_counter_t> rg;
+    for (auto a = work_parts.begin(); a < work_parts.end()-1; ++a) {
+        promise<map_type> rg;
         result_futures.push_back(rg.get_future());
-        rthreads.push_back(thread(worker2, list_of_words_amount[i], list_of_words_amount[i+1], ref(words), move(rg)));
+        threads.emplace_back(wordCounterWrapper<vector<string>::iterator>, *a, *(a + 1), move(rg) );
     }
 
-    vector<words_counter_t> results;
-    for(size_t i = 0; i<result_futures.size(); ++i)
+
+    //TODO: Implement scan for ready futures
+    for(auto& result : result_futures)
     {
-        reducer(m, result_futures[i].get());
+        reducer(wordsMap, result.get());
     }
 
-    for (int i = 0; i < numT; ++i) {
-        rthreads[i].join();
+    for (auto& t: threads) {
+        t.join();
     }
-    auto finishPar = get_current_time_fenced();
-    auto counting = finishPar - startPar;
-    write_to_file(m, "result_word.txt");
-    auto finish = get_current_time_fenced();
-    //cout << "Total read: " << to_us(totalRead) << endl;
-    //cout << "Total Parallel: " << to_us(totalPar) << endl;
-    //cout << "Total time: " << to_us(total) << endl;
-    auto total = finish - start;
-    ofstream myfile;
-    myfile.open (out_by);
-    myfile << to_us(counting)<<'\n';
-    myfile << to_us(total)<<'\n';
-    myfile.close();
-    //write_to_file(m, "A.txt");
-    //printMap(m);
 
-    return 0;
+    auto finished = get_current_time_fenced();
+
+    write_sorted_by_key(out_by_a, wordsMap);
+    write_sorted_by_value(out_by_n, wordsMap);
+
+    auto counting = finished - readed;
+    auto total = finished - start;
+
+    cout << "Total time    : " << to_us(total) << endl;
+    cout << "Analisys time : " << to_us(counting) << endl;
+
+    bool are_correct = true;
+    if( !etalon_a_file.empty() )
+    {
+        are_correct = compareFiles(out_by_a, etalon_a_file);
+    }
+    return !are_correct;
 }
 
