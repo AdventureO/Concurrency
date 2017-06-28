@@ -24,7 +24,8 @@ int main()
 
     string etalon_a_file  = config["etalon_a_file"];
 
-    auto start = get_current_time_fenced(); //<===
+    //=============================================================
+    auto start = get_current_time_fenced();
 
     map_type wordsMap;
 
@@ -40,6 +41,7 @@ int main()
         cleanWord(word);
         ++wordsMap[word];
     }
+    //=============================================================
     auto finish = get_current_time_fenced();
 
     ofstream file(out_by_a);

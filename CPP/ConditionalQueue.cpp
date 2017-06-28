@@ -152,7 +152,8 @@ int main() {
 
     string etalon_a_file  = config["etalon_a_file"];
 
-    auto startProducer = get_current_time_fenced(); //<===
+    //=============================================================
+    auto startProducer = get_current_time_fenced();
 
     vector<thread> threads;
 
@@ -183,6 +184,7 @@ int main() {
 
 	mergeMapsConsumer(localDictsQ, wordsMap);
 
+    //=============================================================
 	auto finishConsumer = get_current_time_fenced();
 
     write_sorted_by_key(out_by_a, wordsMap);

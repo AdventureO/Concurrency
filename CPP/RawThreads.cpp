@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
 
     string etalon_a_file  = config["etalon_a_file"];
 
+    //=============================================================
     auto start = get_current_time_fenced();
  
     ifstream data_file(infile);
@@ -92,6 +93,7 @@ int main(int argc, char *argv[]) {
     vector<string> words{readData(data_file)};
     data_file.close();
 
+    //=============================================================
     auto readed = get_current_time_fenced();
 
     mutex mtx;
@@ -106,6 +108,7 @@ int main(int argc, char *argv[]) {
 
     for (auto& th : threads) th.join();
 
+    //=============================================================
     auto finished = get_current_time_fenced();
 
     write_sorted_by_key(out_by_a, wordsMap);
