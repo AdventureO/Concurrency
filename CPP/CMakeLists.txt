@@ -17,6 +17,9 @@ endif()
 # Uncomment to use std::unordered_map instead of std::map
 add_definitions(-DUSE_UNORDERED_MAP)
 
+# Neccessery for clang+cygwin, good thing everywhere
+add_definitions(-D__STRICT_ANSI__)
+
 project(cpp_concurrency)
 
 set(AUX_TOOLS_FILES "aux_tools.cpp" "aux_tools.hpp")
@@ -32,3 +35,4 @@ add_executable(RawThreads "RawThreads.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILE
 add_executable(Async "Async.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
 
 add_executable(FuturePromise "FuturePromise.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
+ 
