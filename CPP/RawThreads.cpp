@@ -41,7 +41,7 @@ void wordCounter(Iter start, Iter end, map_type& m, mutex& mtx)
 {
     map_type localMp;
 
-    for (auto i = start; i < end; i++) {
+    for (auto i = start; i < end; ++i) {
         cleanWord(*i);
         ++localMp[*i];
     }
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
     mutex mtx;
     map_type wordsMap;
     vector<thread> threads;
-    auto work_parts = SplitVector(words, threads_n);
+    auto work_parts{SplitVector(words, threads_n)};
 
     for (auto a = work_parts.begin(); a < work_parts.end()-1; ++a) {
         threads.emplace_back( wordCounter<vector<string>::iterator>,

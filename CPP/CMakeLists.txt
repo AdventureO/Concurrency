@@ -27,4 +27,8 @@ add_executable(ConditionalQueue "ConditionalQueue.cpp" ${AUX_TOOLS_FILES} ${CLEA
 
 add_executable(seq_etalon "seq_etalon.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
 
-add_executable(RawThreads "RawThreads.cpp"  ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
+add_executable(RawThreads "RawThreads.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
+
+add_executable(Async "Async.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
+
+add_executable(FuturePromise "FuturePromise.cpp" ${AUX_TOOLS_FILES} ${CLEAN_WORDS_FILES})
