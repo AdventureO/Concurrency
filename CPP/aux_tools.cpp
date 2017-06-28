@@ -54,8 +54,15 @@ bool compareFiles(const  std::string& file1, const  std::string& file2)
     size_t cur_line = 0;
     while(getline(f1, str1), getline(f2, str2), f1 && f2)
     {
+#ifdef _MSC_VER
+		// isXXX function have assertions in MSVC...
+		str1.erase(remove_if(str1.begin(), str1.end(), [](unsigned char a) { return isspace(a); }), str1.end());
+		str2.erase(remove_if(str2.begin(), str2.end(), [](unsigned char a) { return isspace(a); }), str2.end());
+
+#else
         str1.erase( remove_if(str1.begin(), str1.end(), ::isspace), str1.end() );
         str2.erase( remove_if(str2.begin(), str2.end(), ::isspace), str2.end() );
+#endif
         if(str1 != str2)
         {
             cerr << "Difference at line " << cur_line << endl;
