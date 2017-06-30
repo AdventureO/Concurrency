@@ -1,0 +1,3 @@
+4 (number of threads)
+10000 (block size)
+data50MB.txt (Enter the path to file to read from)

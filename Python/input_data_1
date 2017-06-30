@@ -1,4 +1,4 @@
-infile="text1.txt"
+infile="dt100.txt"
 outfile="result.txt"
 type="m"
 threads=4

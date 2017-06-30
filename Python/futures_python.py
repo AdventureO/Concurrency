@@ -1,12 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor,  ProcessPoolExecutor
-from string import punctuation
 import time
-
+import sys
 
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
-        for word in line.translate(line.maketrans("", "", punctuation)).lower().split():
+        for word in line.split():
             words_list.append(word)
 
     return words_list
@@ -22,17 +21,20 @@ def words_counting(words_list, word_counter):
 
     local_dict = {}
     for word in words_list:
-        if word not in local_dict:
-            local_dict[word] = 1
-        else:
-            local_dict[word] += 1
+        word = "".join(i for i in word if i.isalpha()).lower()
+        if word != "":
+            if word not in local_dict:
+                local_dict[word] = 1
+            else:
+                local_dict[word] += 1
 
     return local_dict
 
 """
-Зміна між ThreadPoolExecutor та  ProcessPoolExecutor
+ThreadPoolExecutor,  ProcessPoolExecutor
 """
-with open("input_data") as f:
+
+with open("input_data_1") as f:
     content = f.readlines()
 
 content = [x.strip().split("=")[1] for x in content]
@@ -53,12 +55,9 @@ while True:
 
 
 input_list = read_file(content[0])
-number_of_workers = int(content[-1])
+number_of_workers = int(sys.argv[1])
 
-"""
-ділення масиву слів на
-певну кількість - number_of_workers
-"""
+
 avg = len(input_list) / number_of_workers
 last = 0
 word_counter = {}
@@ -79,5 +78,11 @@ with type(max_workers=number_of_workers) as pool:
             else:
                 word_counter[word] = future.result()[word]
 
-print(time.time() - start_time)
-write_file(word_counter, content[1])
+    a = round((time.time() - start_time) * 1000000)
+    print(a)
+    with open('result.txt', 'w') as file:
+        file.write('{}\n'.format(a))
+        file.write('{}\n'.format(100))
+        
+
+#write_file(word_counter, content[1])

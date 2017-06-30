@@ -1,8 +1,7 @@
 from time import time
-from string import punctuation
 import os
-import multiprocessing
 from multiprocessing import Process, Queue
+import sys
 
 """
 multiprocessing with Queue
@@ -10,7 +9,7 @@ multiprocessing with Queue
 def read_file(file_name):
     words_list = []
     for line in open(file_name, 'r'):
-        for word in line.translate(line.maketrans("", "", punctuation)).lower().split():
+        for word in line.split():
             words_list.append(word)
 
     return words_list
@@ -36,17 +35,16 @@ class WordsCount(Process):
         local_dict = {}
         i = 0
         for word in self.words_list:
-            #i += 1
-            #if(i%1000 and i>0):
-            #   print(os.getpid())
-            if word not in local_dict:
-                local_dict[word] = 1
-            else:
-                local_dict[word] += 1
+            word = "".join(i for i in word if i.isalpha()).lower()
+            if word != "":
+                if word not in local_dict:
+                    local_dict[word] = 1
+                else:
+                    local_dict[word] += 1
 
 
         self.result_queue.put(local_dict)
-        print("Added: ", os.getpid())
+        #print("Added: ", os.getpid())
 
 
 
@@ -57,7 +55,7 @@ content = [x.strip().split("=")[1] for x in content]
 for i in range(len(content)-1):
     content[i] = content[i][1:-1]
 
-processes_number = int(content[-1])
+processes_number = int(sys.argv[1])
 if __name__ == '__main__':
     word_counter = {}
     result_queue = Queue()
@@ -65,7 +63,6 @@ if __name__ == '__main__':
     input_list = read_file(content[0])
     avg = len(input_list) / processes_number
     last = 0
-
 
     while last < len(input_list):
         processes.append(WordsCount(input_list[int(last):int(last + avg)], result_queue))
@@ -92,10 +89,8 @@ if __name__ == '__main__':
         process.join()
 
 
-    for process in processes:
-        print(process.is_alive())
-
-
-    print(word_counter)
-    print('Got {} threads in {} seconds'.format(len(processes), time() - start_time))
-    write_file(word_counter, content[1])
+    a = round((time() - start_time) * 1000000)
+    print(a)
+    with open('result.txt', 'w') as file:
+        file.write('{}\n'.format(a))
+        file.write('{}\n'.format(100))

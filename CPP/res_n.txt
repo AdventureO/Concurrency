@@ -1,7 +1,0 @@
-anthrax : 1
-architects : 1
-bfmv : 1
-megadeth : 1
-metallica : 1
-testament : 1
-slayer : 2
