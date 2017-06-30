@@ -66,7 +66,14 @@ namespace Concurrency
                     Console.WriteLine($"Data was contibuted { DataChunks.Count }");
 
                     List<string> consumableDataChunk = Conveyor.DataChunks.Dequeue();
-                    counting_threads[free_thread_slot_index] = new Thread(new ThreadStart(delegate { this._consumers[free_thread_slot_index - 1].Consume(ref wordsCount, ref consumableDataChunk); }));
+                    counting_threads[free_thread_slot_index] = new Thread(
+                                                                    new ThreadStart(
+                                                                        delegate {
+                                                                            this._consumers[free_thread_slot_index - 1].Consume(
+                                                                                ref wordsCount, 
+                                                                                ref consumableDataChunk
+                                                                                );
+                                                                        }));
                     counting_threads[free_thread_slot_index].Start();
                     ++free_thread_slot_index;
 
