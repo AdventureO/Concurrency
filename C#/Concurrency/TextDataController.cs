@@ -10,7 +10,7 @@ namespace Concurrency
 {
     public class TextDataController
     {
-        public const int AVERAGEWORDSCOUNT = 9000;
+        public const int AVERAGE_WORDS_COUNT = 9000;
 
         private object _lockObject = new object();
         private void CountWordsFromFileInParallel(string fileName, ref Dictionary<string, int> globalWordsCount, int startingLineIndex, Action callbackAction = null)
@@ -76,7 +76,7 @@ namespace Concurrency
 
         public Dictionary<string, int> GetWordsCountInParallel(string fileName, int threadsQuantity, out long calculationTime)
         {
-            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGE_WORDS_COUNT);
 
             Thread[] counting_threads = new Thread[threadsQuantity];
 
@@ -145,7 +145,7 @@ namespace Concurrency
 
         public Dictionary<string, int> GetWordsCountInParallel(List<string> lines, int threadsQuantity, out long calculationTime)
         {
-            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGE_WORDS_COUNT);
 
             Thread[] counting_threads = new Thread[threadsQuantity];
 
@@ -219,7 +219,7 @@ namespace Concurrency
         {
             return Task.Factory.StartNew(() =>
             {
-                Dictionary<string, int> localWordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+                Dictionary<string, int> localWordsCount = new Dictionary<string, int>(AVERAGE_WORDS_COUNT);
                 int startingWordCount = 1;
 
                 try
@@ -268,7 +268,7 @@ namespace Concurrency
 
         public Dictionary<string, int> GetWordsCountAsync(string fileName, int threadsQuantity, out long calculationTime, Action callbackAction = null)
         {
-            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGE_WORDS_COUNT);
 
             Task<Dictionary<string, int>>[] counting_tasks = new Task<Dictionary<string, int>>[threadsQuantity];
 
@@ -323,7 +323,7 @@ namespace Concurrency
         {
             return Task.Factory.StartNew(() =>
             {
-                Dictionary<string, int> localWordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+                Dictionary<string, int> localWordsCount = new Dictionary<string, int>(AVERAGE_WORDS_COUNT);
                 int startingWordCount = 1;
 
                 string[] fileLineWordsBuffer;
@@ -352,7 +352,7 @@ namespace Concurrency
 
         public Dictionary<string, int> GetWordsCountAsync(List<string> lines, int threadsQuantity, out long calculationTime)
         {
-            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGEWORDSCOUNT);
+            Dictionary<string, int> wordsCount = new Dictionary<string, int>(AVERAGE_WORDS_COUNT);
 
             Task<Dictionary<string, int>>[] counting_tasks = new Task<Dictionary<string, int>>[threadsQuantity];
 
@@ -396,6 +396,31 @@ namespace Concurrency
             }
 
             return wordsCount;
+        }
+
+        public static void CountWordsFromArray(List<string> fileLines, ref Dictionary<string, int> wordsCount, Action callbackAction = null)
+        {
+            int startingWordCount = 1;
+
+            string[] fileLineWordsBuffer;
+
+            for (int j = 0; j < fileLines.Count; j++)
+            {
+                fileLineWordsBuffer = fileLines[j].Split(' ');
+                for (int i = 0; i < fileLineWordsBuffer.Length; i++)
+                {
+                    if (wordsCount.ContainsKey(fileLineWordsBuffer[i]))
+                    {
+                        wordsCount[fileLineWordsBuffer[i]]++;
+                    }
+                    else
+                    {
+                        wordsCount.Add(fileLineWordsBuffer[i], startingWordCount);
+                    }
+                }
+            }
+
+            callbackAction?.Invoke();
         }
     }
 }

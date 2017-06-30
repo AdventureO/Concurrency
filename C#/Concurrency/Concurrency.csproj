@@ -43,6 +43,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConditionVariable.cs" />
+    <Compile Include="Conveyor.cs" />
+    <Compile Include="ConveyorConsumer.cs" />
+    <Compile Include="ConveyorContributor.cs" />
+    <Compile Include="ConveyorQueue.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StreamReaderUtility.cs" />
