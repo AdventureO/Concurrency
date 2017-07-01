@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <cassert>
 
+#include <list>
+
 
 #include <unordered_map>
 
@@ -29,6 +31,7 @@ using map_type = map<string, unsigned int>;
 
 //! Rather simple.
 //! Не втримався, каюся, таки написав чергу...
+//! TODO: Add list support
 template<typename T, typename Container=deque<T>>
 class SimpleQueStruct
 {
