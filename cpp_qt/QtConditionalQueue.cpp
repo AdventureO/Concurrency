@@ -15,6 +15,7 @@
 #include <QThread>
 #include <QCoreApplication>
 #include <QSharedPointer>
+#include <QAtomicInteger>
 
 //! Немає сенсу переписувати допоміжні інструменти на Qt
 #include "../cxx/aux_tools.hpp"
@@ -28,8 +29,8 @@ QMutex mux;
 QMutex mux1;
 QMutex mux2;
 QMutex mux3;
-atomic<bool> done = { false };
-atomic<size_t> done_count;
+QAtomicInteger<bool> done = { false };
+QAtomicInteger<size_t> done_count;
 
 
 
@@ -103,14 +104,14 @@ void ReadingThread::run()
 class CountingThread : public QThread { //takes from queue and adds to map
 
 public:
-    CountingThread(atomic <size_t> &done_count);
+    CountingThread(QAtomicInteger<size_t> &done_count);
     void run();
 
 protected:
-    atomic <size_t> &done_count;
+    QAtomicInteger<size_t> &done_count;
 };
 
-CountingThread::CountingThread(atomic <size_t> &done_count)
+CountingThread::CountingThread(QAtomicInteger<size_t> &done_count)
     : done_count(done_count) {}
 
 void CountingThread::run()
@@ -163,15 +164,15 @@ void CountingThread::run()
 class MergingThread : public QThread { //appends to queue
 
 public:
-    MergingThread(atomic <size_t> &done_count);
+    MergingThread(QAtomicInteger<size_t> &done_count);
     void run();
 
 protected:
-    atomic <size_t> &done_count;
+    QAtomicInteger<size_t> &done_count;
 
 };
 
-MergingThread::MergingThread(atomic <size_t> &done_count)
+MergingThread::MergingThread(QAtomicInteger<size_t> &done_count)
     : done_count(done_count) {}
 
 
