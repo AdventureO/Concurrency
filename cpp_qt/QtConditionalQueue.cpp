@@ -199,21 +199,6 @@ void MergingThread::run()
     }
 }
 
-//! Temporary!
-template<typename KeyT, typename ValueT>
-void write_sorted_by_key( std::ostream& file, const QMap<KeyT, ValueT>& data )
-{
-    using VectorOfItemsT = std::vector< std::pair<KeyT, ValueT> >;
-    VectorOfItemsT VectorOfItems;
-    for(auto& item: data)
-    {
-        VectorOfItems.emplace_back(item);
-    }
-    sort(VectorOfItems.begin(), VectorOfItems.end());
-
-    for(auto& item: VectorOfItems)
-        file << item.first << ": " << item.second << '\n';
-}
 
 int main(int argc, char* argv[])
 {
