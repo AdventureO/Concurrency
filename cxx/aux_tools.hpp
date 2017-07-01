@@ -2,13 +2,13 @@
 #define CPP_CONC_AUX_TOOLS_HPP_INCLUDED
 
 #include <atomic>
-#include <deque>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <stdexcept>
 #include <chrono>
+#include <algorithm>
 #include <map>
 #include <unordered_map>
 
@@ -24,7 +24,7 @@ inline long long to_us(const D& d) {
     return std::chrono::duration_cast<std::chrono::microseconds>(d).count();
 }
 
-//! std::map is sorted by keys. So we need other function for unorderd_map
+//! std::map is sorted by keys.
 template<typename KeyT, typename ValueT>
 void write_sorted_by_key( std::ostream& file, const std::map<KeyT, ValueT>& data )
 {
@@ -33,18 +33,18 @@ void write_sorted_by_key( std::ostream& file, const std::map<KeyT, ValueT>& data
     // '\n' does not flushes the buffers, so is faster than endl.
 }
 
-
-//! Or should we enforce sort for any std::map-like container, except std::map?
-template<typename KeyT, typename ValueT>
-void write_sorted_by_key( std::ostream& file, const std::unordered_map<KeyT, ValueT>& data )
+template<typename MapT>
+void write_sorted_by_key( std::ostream& file, const MapT& data )
 {
-    using VectorOfItemsT = std::vector< std::pair<KeyT, ValueT> >;
+    using VectorOfItemsT = std::vector<
+                std::pair<typename MapT::key_type, typename MapT::mapped_type >
+                                      >;
     VectorOfItemsT VectorOfItems;
     for(auto& item: data)
     {
         VectorOfItems.emplace_back(item);
     }
-    sort(VectorOfItems.begin(), VectorOfItems.end());
+    std::sort(VectorOfItems.begin(), VectorOfItems.end());
 
     for(auto& item: VectorOfItems)
         file << item.first << ": " << item.second << '\n';
