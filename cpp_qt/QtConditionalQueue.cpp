@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include <iostream>
 #include <atomic>
 #include <cstring>
@@ -11,7 +14,10 @@
 #include <QDebug>
 #include <QThread>
 #include <QCoreApplication>
-#include "timing_v1.hpp"
+#include <QSharedPointer>
+
+//! Немає сенсу переписувати допоміжні інструменти на Qt
+#include "../cxx/aux_tools.hpp"
 
 using namespace std;
 
@@ -23,12 +29,12 @@ QMutex mux1;
 QMutex mux2;
 QMutex mux3;
 atomic<bool> done = { false };
-atomic<int> done_count;
+atomic<size_t> done_count;
 
 
 
 using words_counter_t = QMap<QString, int>;
-words_counter_t words;
+words_counter_t wordsMap;
 QQueue<words_counter_t> map_q;
 
 
@@ -97,14 +103,14 @@ void ReadingThread::run()
 class CountingThread : public QThread { //takes from queue and adds to map
 
 public:
-    CountingThread(atomic <int> &done_count);
+    CountingThread(atomic <size_t> &done_count);
     void run();
 
 protected:
-    atomic <int> &done_count;
+    atomic <size_t> &done_count;
 };
 
-CountingThread::CountingThread(atomic <int> &done_count)
+CountingThread::CountingThread(atomic <size_t> &done_count)
     : done_count(done_count) {}
 
 void CountingThread::run()
@@ -157,15 +163,15 @@ void CountingThread::run()
 class MergingThread : public QThread { //appends to queue
 
 public:
-    MergingThread(atomic <int> &done_count);
+    MergingThread(atomic <size_t> &done_count);
     void run();
 
 protected:
-    atomic <int> &done_count;
+    atomic <size_t> &done_count;
 
 };
 
-MergingThread::MergingThread(atomic <int> &done_count)
+MergingThread::MergingThread(atomic <size_t> &done_count)
     : done_count(done_count) {}
 
 
@@ -181,7 +187,7 @@ void MergingThread::run()
         luk1.unlock();
     for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
         QMutexLocker lg(&mux3);
-        words[itr.key()] += itr.value();
+        wordsMap[itr.key()] += itr.value();
     }
     map_q.dequeue();
     }else{
@@ -201,99 +207,87 @@ void MergingThread::run()
 int main(int argc, char* argv[])
 {
     QCoreApplication app(argc, argv);
-    char thread[16];
-    string base;
-    string infile;
-    string outfile;
-    int num_threads = 5;
-    done_count = {num_threads};
 
-    QString in_filename = "/home/yaryna/Desktop/one.txt";
-    QString out_filename = "/home/yaryna/Desktop/NEWRESULTS.txt";
+    auto config = read_config("data_input_conc.txt");
 
-    // ----------------------------------------------
+    QString infile      = QString::fromStdString(config["infile"]);
+    QString out_by_a    = QString::fromStdString(config["out_by_a"]);
+    QString out_by_n    = QString::fromStdString(config["out_by_n"]);
+    size_t threads_n   = str_to_val<size_t>(config["threads"]);
 
+    QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
+
+    //=============================================================
     auto creating_threads_start_time = get_current_time_fenced();
 
-    QThread* thr1 = new ReadingThread(in_filename);
+    done_count = {threads_n};
 
-    //!!!!!!!!!!!!!!!!!!!!!!!!
+    //! Перевизначення run() тут є прийнятним -- воно найближче до c++11::thread
+    //! але див. https://mayaposch.wordpress.com/2011/11/01/how-to-really-truly-use-qthreads-the-full-explanation/
+    //! та й тут: http://doc.qt.io/qt-5/qthread.html
+    //! Важливо, що про мотиви використовувати "неканонічне" рішення
+    //! слід буде наголосити в тексті.
+    ReadingThread reader_thr(infile);
 
-    QList<CountingThread*> thread_lst;
-    int num_pointer = 0;
-    for (int el = 0; el < num_threads; el++) {
-        thread_lst.append(new CountingThread(done_count));
+    //! Без динамічної пам'яті тут обійтися важко
+    //! Але спростимо собі керування нею.
+    //! На жаль, через "креативність" розробників Qt (https://stackoverflow.com/questions/34761327/qlist-of-qscopedpointers)
+    //! оптимальнішим QScopedPointer скористатися не вдалося. Та й makeXXXPointer вони не надали...
+    QVector<QSharedPointer<CountingThread>> thread_ptrs_lst;
+    for (int el = 0; el < threads_n; el++) {
+        thread_ptrs_lst.append(QSharedPointer<CountingThread>(new CountingThread(done_count)));
     }
-    QThread* merging = new MergingThread(done_count);
+    MergingThread merging_thr(done_count);
 
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- //starting all the threads
-    auto indexing_start_time = get_current_time_fenced();
-    thr1->start();
-    for (auto thread : thread_lst) {
-        if (num_threads > 1) {
-            thread->start(); // thread->run(); STARTS CODE IN THIS THREAD! Use start to run code in other thread.
+    //! Замір часу створення потоків важливий, однак тут він може зіпсувати
+    //! трохи результати -- вставивши бар'єри пам'яті та заважаючи компілятору
+    //! оптимізувати.
+    // auto indexing_start_time = get_current_time_fenced();
+    reader_thr.start();
+    // QThread::run() runs code in this thread,
+    // QThread::start() -- in target thread
+    for (auto& thread : thread_ptrs_lst) {
+        if (threads_n > 1) {
+            thread->start();
         }
         else {
             thread->run(); // Do not use threads at all.
         }
     }
-    merging->start();
+    merging_thr.run(); // Можемо собі дозволити працювати в цьому потоці -- новий не потрібен.
 
 
 
-//waiting and deleting
-//    thr1->wait();
-    for (auto thread : thread_lst) {
-
+    reader_thr.wait();
+    for (auto& thread : thread_ptrs_lst) {
         thread->wait();
     }
 
-    merging->wait();
+    merging_thr.wait();
 
-
-    thr1->deleteLater();
-
-    for (auto thread : thread_lst) {
-
-        thread->deleteLater();
-    }
-
-   // qDebug() << map_q;
-
-    merging->deleteLater();
-
-
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+    //=============================================================
 
     auto indexing_done_time = get_current_time_fenced();
 
-    //________________________________________________
+    auto time_res = to_us(indexing_done_time - creating_threads_start_time);
+    cout << "Total time : " << time_res << endl;
 
-    int total_words = 0;
-    for (auto it = words.begin(); it != words.end(); ++it) {
-        total_words += it.value();
+    //=============================================================
+    //! Чисто з ліні -- щоб не переносити функції збереження під Qt
+
+    std::map<std::string, unsigned int> cpp_map;
+    for(auto iter = wordsMap.begin(); iter != wordsMap.end(); ++iter)
+    {
+        cpp_map[iter.key().toStdString()] = iter.value();
     }
 
-    auto time_res = to_us(indexing_done_time - indexing_start_time);
-    auto creating_threads_time = to_us(indexing_start_time - creating_threads_start_time);
-    cout << "INDEXING TIME: " << time_res << " us " << endl;
-    cout << "THREADS CREATING TIME: " << creating_threads_time << " us " << endl;
+    write_sorted_by_value(out_by_a.toStdString(), cpp_map);
+    write_sorted_by_value(out_by_n.toStdString(), cpp_map);
 
-    //---------------------------------------------------------------
-    QFile output_file(out_filename);
-    if (!output_file.open(QIODevice::WriteOnly)) {
-        cerr << "Could not write file with results." << endl;
-        return -1;
+    bool are_correct = true;
+    if( !etalon_a_file.isEmpty() )
+    {
+        are_correct = compareFiles(out_by_a.toStdString(), etalon_a_file.toStdString());
     }
-
-    QTextStream output_stream(&output_file);
-
-    output_stream << "Total words: " << total_words << endl;
-    output_stream << "Total time: " << time_res << endl;
-    for (auto it = words.begin(); it != words.end(); ++it) {
-        // Format output here.
-        output_stream << QString("%1 : %2 \n").arg(it.key(), 10).arg(it.value(), 10);
-    }
-    output_file.close();
+    return !are_correct;
 }
