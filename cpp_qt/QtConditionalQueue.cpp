@@ -73,8 +73,8 @@ void ReadingThread::run()
             if (counter == fullblock) {
                 QMutexLocker lck(&mux);
                 d.enqueue(lst);
-                lck.unlock(); ///////////////////////
                 cv.wakeOne();
+                lck.unlock();
                 lst.clear();
                 counter = 0; //
             }
@@ -85,11 +85,12 @@ void ReadingThread::run()
         if (lst.size() != 0) {
 
             QMutexLocker lck(&mux);
-            d << lst;
-            lck.unlock();
+            d << lst;            
             cv.wakeOne();
+            lck.unlock();
         }
         inputFile.close();
+        QMutexLocker lck(&mux);
         cv.wakeAll();
         done = true;
     }
@@ -116,32 +117,28 @@ CountingThread::CountingThread(QAtomicInteger<size_t> &done_count)
 
 void CountingThread::run()
 {
-// можливо проблема через цей мютекс, але коли я його переставляю
-    // в іф, програма взагалі не закінчує ранитися
-    words_counter_t local_dictionary;
 
     while (true) {
-        qDebug() << done_count << " : COUNT";
-            QString l;
-            QMutexLocker lk(&mux);
-            if (!d.empty()) {
-                QList<QString> v;
-                v << d.head();
-                d.dequeue();
-                lk.unlock();
+        //qDebug() << done_count << " : COUNT";
+        QString l;
+        QMutexLocker lk(&mux);
+        if (!d.empty()) {
+            QList<QString> v;
+            v << d.head();
+            d.dequeue();
+            lk.unlock();
+            words_counter_t local_dictionary;
             for (int i = 0; i < v.size(); i++) {
                 QTextStream in(&v[i]);
                 while (!in.atEnd()) {
-                in >> l;
-                l =  l.remove(remove_if(l.begin(), l.end(), [](QChar x) {return !x.isLetter() && !x.isSpace();} )
-                - l.begin(), l.size() ).toLower();
-                QMutexLocker dict_lk(&mux1); //окремий мютекслокер дати
-                ++local_dictionary[l];
-            }
+                    in >> l;
+                    l =  l.remove(remove_if(l.begin(), l.end(), [](QChar x) {return !x.isLetter() && !x.isDigit();} )
+                    - l.begin(), l.size() ).toLower();
+                    ++local_dictionary[l];
+                }
             }
             QMutexLocker other_lk(&mux2);
             map_q.enqueue(local_dictionary);
-            other_lk.unlock();
             cv1.wakeOne();
         }
         if (d.empty()) {
@@ -156,8 +153,8 @@ void CountingThread::run()
         }
     }
     cv1.wakeAll();
-    qDebug() << "here";
-    done_count--;
+    //qDebug() << "here";
+    --done_count;
 }
 
 
@@ -180,30 +177,43 @@ MergingThread::MergingThread(QAtomicInteger<size_t> &done_count)
 void MergingThread::run()
 {
     while (true) {
-        qDebug() << "COUNT BEFORE: " << done_count;
-    QMutexLocker luk1(&mux2);
-    if (map_q.size() != 0) {
-        cout << "MERGE " << endl;
-        words_counter_t local_dictionary = map_q.head();
-        luk1.unlock();
-    for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
-        QMutexLocker lg(&mux3);
-        wordsMap[itr.key()] += itr.value();
-    }
-    map_q.dequeue();
-    }else{
-        if ((done_count==0)&&(map_q.isEmpty())) {
-            qDebug() << "DONE COUNT TRUE";
-            break;
+        //qDebug() << "COUNT BEFORE: " << done_count;
+        QMutexLocker luk1(&mux2);
+        if (map_q.size() != 0) {
+            //qDebug() << "MERGE " << endl;
+            words_counter_t local_dictionary = map_q.head();
+            map_q.dequeue();
+            luk1.unlock();
+            for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
+                wordsMap[itr.key()] += itr.value();
+            }
         }else{
-            qDebug() << "DONE COUNT FALSE";
-            cv1.wait(&mux2);
+            if ((done_count==0)&&(map_q.isEmpty())) {
+                //qDebug() << "DONE COUNT TRUE";
+                break;
+            }else{
+                //qDebug() << "DONE COUNT FALSE";
+                cv1.wait(&mux2);
+            }
         }
-    }
     }
 }
 
+//! Temporary!
+template<typename KeyT, typename ValueT>
+void write_sorted_by_key( std::ostream& file, const QMap<KeyT, ValueT>& data )
+{
+    using VectorOfItemsT = std::vector< std::pair<KeyT, ValueT> >;
+    VectorOfItemsT VectorOfItems;
+    for(auto& item: data)
+    {
+        VectorOfItems.emplace_back(item);
+    }
+    sort(VectorOfItems.begin(), VectorOfItems.end());
 
+    for(auto& item: VectorOfItems)
+        file << item.first << ": " << item.second << '\n';
+}
 
 int main(int argc, char* argv[])
 {
@@ -221,7 +231,7 @@ int main(int argc, char* argv[])
     //=============================================================
     auto creating_threads_start_time = get_current_time_fenced();
 
-    done_count = {threads_n};
+    done_count = {threads_n-2};
 
     //! Перевизначення run() тут є прийнятним -- воно найближче до c++11::thread
     //! але див. https://mayaposch.wordpress.com/2011/11/01/how-to-really-truly-use-qthreads-the-full-explanation/
@@ -235,7 +245,7 @@ int main(int argc, char* argv[])
     //! На жаль, через "креативність" розробників Qt (https://stackoverflow.com/questions/34761327/qlist-of-qscopedpointers)
     //! оптимальнішим QScopedPointer скористатися не вдалося. Та й makeXXXPointer вони не надали...
     QVector<QSharedPointer<CountingThread>> thread_ptrs_lst;
-    for (int el = 0; el < threads_n; el++) {
+    for (int el = 0; el < threads_n-2; el++) {
         thread_ptrs_lst.append(QSharedPointer<CountingThread>(new CountingThread(done_count)));
     }
     MergingThread merging_thr(done_count);
@@ -282,7 +292,7 @@ int main(int argc, char* argv[])
         cpp_map[iter.key().toStdString()] = iter.value();
     }
 
-    write_sorted_by_value(out_by_a.toStdString(), cpp_map);
+    write_sorted_by_key(out_by_a.toStdString(), cpp_map);
     write_sorted_by_value(out_by_n.toStdString(), cpp_map);
 
     bool are_correct = true;
