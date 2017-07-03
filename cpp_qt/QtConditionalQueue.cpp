@@ -2,60 +2,71 @@
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
 #include <iostream>
-#include <atomic>
-#include <cstring>
+
+#include <QtDebug>
 #include <QQueue>
 #include <QWaitCondition>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTextStream>
 #include <QFile>
-#include <cmath>
 #include <QDebug>
 #include <QThread>
 #include <QCoreApplication>
 #include <QSharedPointer>
 #include <QAtomicInteger>
+#include <QException>
 
 //! Немає сенсу переписувати допоміжні інструменти на Qt
 #include "../cxx/aux_tools.hpp"
 
 using namespace std;
 
-QQueue<QList<QString> > d;
-QWaitCondition cv;
-QWaitCondition cv1;
-QMutex mux;
-QMutex mux1;
-QMutex mux2;
-QMutex mux3;
-QAtomicInteger<bool> done = { false };
-QAtomicInteger<size_t> done_count;
+using map_type = QMap<QString, unsigned int>;
+using string_list_type = QStringList; //  QVector<QString>
 
+template<typename T, typename Container=QQueue<T>>
+class QSimpleQueStruct
+{
+public:
+    Container que;
+    QWaitCondition cv;
+    QMutex mtx;
+    QAtomicInteger<size_t> left_threads;
 
+    QSimpleQueStruct(size_t thr): left_threads(thr){}
 
-using words_counter_t = QMap<QString, int>;
-words_counter_t wordsMap;
-QQueue<words_counter_t> map_q;
+    ~QSimpleQueStruct(){
+        // Just sanity check.
+        Q_ASSERT_X( left_threads == 0, "~QSimpleQueStruct()",
+                      "Que destroyed before all users stopped.");
+    }
+};
 
-
+class CCException: QException
+{
+    QString m_message;
+public:
+    QString message() const { return m_message; }
+    CCException(const QString& s): m_message(s){}
+};
 
 
 class ReadingThread : public QThread { //appends to queue
 
 public:
-    ReadingThread(const QString& filename);
+    ReadingThread(const QString& filename_, QSimpleQueStruct<string_list_type>& blocksQue_);
     void run();
 
 protected:
-    const QString& filename;
+    QString filename;
+    QSimpleQueStruct<string_list_type>& blocksQue;
 };
 
-ReadingThread::ReadingThread(const QString& filename)
-    : filename(filename)
+ReadingThread::ReadingThread(const QString& filename_, QSimpleQueStruct<string_list_type>& blocksQue_)
+    : filename(filename_), blocksQue(blocksQue_)
 {
 }
-
 
 void ReadingThread::run()
 {
@@ -71,9 +82,9 @@ void ReadingThread::run()
             QString l = in.readLine();
             lst << l;
             if (counter == fullblock) {
-                QMutexLocker lck(&mux);
-                d.enqueue(lst);
-                cv.wakeOne();
+                QMutexLocker lck(&blocksQue.mtx);
+                blocksQue.que.enqueue(lst);
+                blocksQue.cv.wakeOne();
                 lck.unlock();
                 lst.clear();
                 counter = 0; //
@@ -84,36 +95,38 @@ void ReadingThread::run()
         }
         if (lst.size() != 0) {
 
-            QMutexLocker lck(&mux);
-            d << lst;            
-            cv.wakeOne();
+            QMutexLocker lck(&blocksQue.mtx);
+            blocksQue.que.append(lst);
+            blocksQue.cv.wakeOne();
             lck.unlock();
         }
         inputFile.close();
-        QMutexLocker lck(&mux);
-        cv.wakeAll();
-        done = true;
+        QMutexLocker lck(&blocksQue.mtx);
+        blocksQue.cv.wakeAll();
+        --blocksQue.left_threads;
     }
     else {
-        cout << "error reading from file";
+        qDebug() << "Error reading file: " + filename;
+        throw CCException("Error reading file: " + filename );
     }
 }
-
-
 
 
 class CountingThread : public QThread { //takes from queue and adds to map
 
 public:
-    CountingThread(QAtomicInteger<size_t> &done_count);
+    CountingThread(QSimpleQueStruct<string_list_type>& blocksQue_,
+                   QSimpleQueStruct<map_type>& mapsQue_);
     void run();
 
 protected:
-    QAtomicInteger<size_t> &done_count;
+    QSimpleQueStruct<string_list_type>& blocksQue;
+    QSimpleQueStruct<map_type>& mapsQue;
 };
 
-CountingThread::CountingThread(QAtomicInteger<size_t> &done_count)
-    : done_count(done_count) {}
+CountingThread::CountingThread(QSimpleQueStruct<string_list_type>& blocksQue_,
+                               QSimpleQueStruct<map_type>& mapsQue_)
+    : blocksQue(blocksQue_), mapsQue(mapsQue_){}
 
 void CountingThread::run()
 {
@@ -121,13 +134,13 @@ void CountingThread::run()
     while (true) {
         //qDebug() << done_count << " : COUNT";
         QString l;
-        QMutexLocker lk(&mux);
-        if (!d.empty()) {
-            QList<QString> v;
-            v << d.head();
-            d.dequeue();
+        QMutexLocker lk(&blocksQue.mtx);
+        if (!blocksQue.que.empty()) {
+            string_list_type v;
+            v.append(blocksQue.que.head());
+            blocksQue.que.dequeue();
             lk.unlock();
-            words_counter_t local_dictionary;
+            map_type local_dictionary;
             for (int i = 0; i < v.size(); i++) {
                 QTextStream in(&v[i]);
                 while (!in.atEnd()) {
@@ -137,63 +150,56 @@ void CountingThread::run()
                     ++local_dictionary[l];
                 }
             }
-            QMutexLocker other_lk(&mux2);
-            map_q.enqueue(local_dictionary);
-            cv1.wakeOne();
+            QMutexLocker other_lk(&mapsQue.mtx);
+            mapsQue.que.enqueue(local_dictionary);
+            mapsQue.cv.wakeOne();
         }
-        if (d.empty()) {
-            if (done) {
-
-                //cv1.wakeOne(); //////////////////////////////////
+        if (blocksQue.que.empty()) {
+            if (blocksQue.left_threads == 0) {
                 break;
             }
             else {
-                cv.wait(&mux);
+                blocksQue.cv.wait(&blocksQue.mtx);
             }
         }
     }
-    cv1.wakeAll();
-    //qDebug() << "here";
-    --done_count;
+    --mapsQue.left_threads;
+    mapsQue.cv.wakeAll();
 }
 
 
 class MergingThread : public QThread { //appends to queue
 
 public:
-    MergingThread(QAtomicInteger<size_t> &done_count);
+    MergingThread(QSimpleQueStruct<map_type>& mapsQue_, map_type& wordsMap_);
     void run();
 
 protected:
-    QAtomicInteger<size_t> &done_count;
-
+    QSimpleQueStruct<map_type>& mapsQue;
+    map_type& wordsMap;
 };
 
-MergingThread::MergingThread(QAtomicInteger<size_t> &done_count)
-    : done_count(done_count) {}
+MergingThread::MergingThread(QSimpleQueStruct<map_type>& mapsQue_, map_type& wordsMap_)
+    : mapsQue(mapsQue_), wordsMap(wordsMap_) {}
 
 
 
 void MergingThread::run()
 {
     while (true) {
-        //qDebug() << "COUNT BEFORE: " << done_count;
-        QMutexLocker luk1(&mux2);
-        if (map_q.size() != 0) {
-            //qDebug() << "MERGE " << endl;
-            words_counter_t local_dictionary = map_q.head();
-            map_q.dequeue();
+        QMutexLocker luk1(&mapsQue.mtx);
+        if (mapsQue.que.size() != 0) {
+            map_type local_dictionary{mapsQue.que.head()};
+            mapsQue.que.dequeue();
             luk1.unlock();
             for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
                 wordsMap[itr.key()] += itr.value();
             }
         }else{
-            if ((done_count==0)&&(map_q.isEmpty())) {
-                //qDebug() << "DONE COUNT TRUE";
+            if ( mapsQue.left_threads == 0) {
                 break;
             }else{
-                //qDebug() << "DONE COUNT FALSE";
-                cv1.wait(&mux2);
+                mapsQue.cv.wait(&mapsQue.mtx);
             }
         }
     }
@@ -216,14 +222,16 @@ int main(int argc, char* argv[])
     //=============================================================
     auto creating_threads_start_time = get_current_time_fenced();
 
-    done_count = {threads_n-2};
+    map_type wordsMap;
+    QSimpleQueStruct<string_list_type> readBlocksQ{1};
+    QSimpleQueStruct<map_type> localDictsQ{threads_n-2};
 
     //! Перевизначення run() тут є прийнятним -- воно найближче до c++11::thread
     //! але див. https://mayaposch.wordpress.com/2011/11/01/how-to-really-truly-use-qthreads-the-full-explanation/
     //! та й тут: http://doc.qt.io/qt-5/qthread.html
     //! Важливо, що про мотиви використовувати "неканонічне" рішення
     //! слід буде наголосити в тексті.
-    ReadingThread reader_thr(infile);
+    ReadingThread reader_thr(infile, readBlocksQ);
 
     //! Без динамічної пам'яті тут обійтися важко
     //! Але спростимо собі керування нею.
@@ -231,9 +239,9 @@ int main(int argc, char* argv[])
     //! оптимальнішим QScopedPointer скористатися не вдалося. Та й makeXXXPointer вони не надали...
     QVector<QSharedPointer<CountingThread>> thread_ptrs_lst;
     for (int el = 0; el < threads_n-2; el++) {
-        thread_ptrs_lst.append(QSharedPointer<CountingThread>(new CountingThread(done_count)));
+        thread_ptrs_lst.append(QSharedPointer<CountingThread>(new CountingThread(readBlocksQ, localDictsQ)));
     }
-    MergingThread merging_thr(done_count);
+    MergingThread merging_thr(localDictsQ, wordsMap);
 
     //! Замір часу створення потоків важливий, однак тут він може зіпсувати
     //! трохи результати -- вставивши бар'єри пам'яті та заважаючи компілятору
@@ -243,12 +251,7 @@ int main(int argc, char* argv[])
     // QThread::run() runs code in this thread,
     // QThread::start() -- in target thread
     for (auto& thread : thread_ptrs_lst) {
-        if (threads_n > 1) {
-            thread->start();
-        }
-        else {
-            thread->run(); // Do not use threads at all.
-        }
+        thread->start();
     }
     merging_thr.run(); // Можемо собі дозволити працювати в цьому потоці -- новий не потрібен.
 
