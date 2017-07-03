@@ -73,10 +73,10 @@ ReadingThread::ReadingThread(const QString& filename_, size_t blockSize_, QSimpl
 
 void ReadingThread::run()
 {
-    string_list_type words;
     QFile inputFile(filename);
 
     if (inputFile.open(QIODevice::ReadOnly)) {
+        string_list_type words;
         QTextStream in(&inputFile);
         in.setCodec("UTF-8");   // Ми враховуємо лише ASCII-символи, але
                                 // це потрібно для коректного (ну, чи просто --
@@ -98,12 +98,12 @@ void ReadingThread::run()
             QMutexLocker lck(&blocksQue.mtx);
             blocksQue.que.append(words);
             blocksQue.cv.wakeOne();
-            lck.unlock();
+            //lck.unlock();
         }
         inputFile.close();
+        --blocksQue.left_threads;
         QMutexLocker lck(&blocksQue.mtx);
         blocksQue.cv.wakeAll();
-        --blocksQue.left_threads;
     }
     else {
         qDebug() << "Error reading file: " + filename;
@@ -134,8 +134,7 @@ void CountingThread::run()
     while (true) {
         QMutexLocker lk(&blocksQue.mtx);
         if (!blocksQue.que.empty()) {
-            string_list_type v;
-            v.append(blocksQue.que.head());
+            string_list_type v{blocksQue.que.head()};
             blocksQue.que.dequeue();
             lk.unlock();
             map_type local_dictionary;
@@ -146,8 +145,8 @@ void CountingThread::run()
             QMutexLocker other_lk(&mapsQue.mtx);
             mapsQue.que.enqueue(local_dictionary);
             mapsQue.cv.wakeOne();
-        }
-        if (blocksQue.que.empty()) {
+        }else
+        {
             if (blocksQue.left_threads == 0) {
                 break;
             }
@@ -157,6 +156,7 @@ void CountingThread::run()
         }
     }
     --mapsQue.left_threads;
+    QMutexLocker other_lk(&mapsQue.mtx);
     mapsQue.cv.wakeAll();
 }
 
