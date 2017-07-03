@@ -55,48 +55,44 @@ public:
 class ReadingThread : public QThread { //appends to queue
 
 public:
-    ReadingThread(const QString& filename_, QSimpleQueStruct<string_list_type>& blocksQue_);
+    ReadingThread(const QString& filename_, size_t blockSize_, QSimpleQueStruct<string_list_type>& blocksQue_);
     void run();
 
 protected:
     QString filename;
+    size_t blockSize;
     QSimpleQueStruct<string_list_type>& blocksQue;
 };
 
-ReadingThread::ReadingThread(const QString& filename_, QSimpleQueStruct<string_list_type>& blocksQue_)
-    : filename(filename_), blocksQue(blocksQue_)
+ReadingThread::ReadingThread(const QString& filename_, size_t blockSize_, QSimpleQueStruct<string_list_type>& blocksQue_)
+    : filename(filename_), blockSize(blockSize_), blocksQue(blocksQue_)
 {
 }
 
 void ReadingThread::run()
 {
-    QStringList lst;
-    int counter = 1;
+    string_list_type words;
     int fullblock = 100;
     QFile inputFile(filename);
 
     if (inputFile.open(QIODevice::ReadOnly)) {
         QTextStream in(&inputFile);
+        QString word;
         while (!in.atEnd()) {
-
-            QString l = in.readLine();
-            lst << l;
-            if (counter == fullblock) {
+            in >> word;
+            words.append(word);
+            if (words.size() == fullblock) {
                 QMutexLocker lck(&blocksQue.mtx);
-                blocksQue.que.enqueue(lst);
+                blocksQue.que.enqueue(words);
                 blocksQue.cv.wakeOne();
                 lck.unlock();
-                lst.clear();
-                counter = 0; //
-            }
-            else {
-                counter++;
+                words.clear();
             }
         }
-        if (lst.size() != 0) {
+        if (words.size() != 0) {
 
             QMutexLocker lck(&blocksQue.mtx);
-            blocksQue.que.append(lst);
+            blocksQue.que.append(words);
             blocksQue.cv.wakeOne();
             lck.unlock();
         }
@@ -215,7 +211,8 @@ int main(int argc, char* argv[])
     QString infile      = QString::fromStdString(config["infile"]);
     QString out_by_a    = QString::fromStdString(config["out_by_a"]);
     QString out_by_n    = QString::fromStdString(config["out_by_n"]);
-    size_t threads_n   = str_to_val<size_t>(config["threads"]);
+    size_t blockSize    = str_to_val<size_t>(config["blockSize"]);
+    size_t threads_n    = str_to_val<size_t>(config["threads"]);
 
     QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
 
@@ -231,7 +228,7 @@ int main(int argc, char* argv[])
     //! та й тут: http://doc.qt.io/qt-5/qthread.html
     //! Важливо, що про мотиви використовувати "неканонічне" рішення
     //! слід буде наголосити в тексті.
-    ReadingThread reader_thr(infile, readBlocksQ);
+    ReadingThread reader_thr(infile, blockSize, readBlocksQ);
 
     //! Без динамічної пам'яті тут обійтися важко
     //! Але спростимо собі керування нею.
