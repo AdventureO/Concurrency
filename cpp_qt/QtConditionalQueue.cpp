@@ -45,7 +45,7 @@ public:
     }
 };
 
-class CCException: QException
+class CCException: public QException
 {
     QString m_message;
 public:
@@ -74,7 +74,6 @@ ReadingThread::ReadingThread(const QString& filename_, size_t blockSize_, QSimpl
 void ReadingThread::run()
 {
     string_list_type words;
-    int fullblock = 100;
     QFile inputFile(filename);
 
     if (inputFile.open(QIODevice::ReadOnly)) {
@@ -86,7 +85,7 @@ void ReadingThread::run()
         while (!in.atEnd()) {
             in >> word;
             words.append(word);
-            if (words.size() == fullblock) {
+            if (words.size() == blockSize) {
                 QMutexLocker lck(&blocksQue.mtx);
                 blocksQue.que.enqueue(words);
                 blocksQue.cv.wakeOne();
@@ -229,30 +228,23 @@ int main(int argc, char* argv[])
     //! Важливо, що про мотиви використовувати "неканонічне" рішення
     //! слід буде наголосити в тексті.
     ReadingThread reader_thr(infile, blockSize, readBlocksQ);
+    reader_thr.start(); // Start as soon as possible.
 
     //! Без динамічної пам'яті тут обійтися важко
     //! Але спростимо собі керування нею.
     //! На жаль, через "креативність" розробників Qt (https://stackoverflow.com/questions/34761327/qlist-of-qscopedpointers)
     //! оптимальнішим QScopedPointer скористатися не вдалося. Та й makeXXXPointer вони не надали...
     QVector<QSharedPointer<CountingThread>> thread_ptrs_lst;
-    for (int el = 0; el < threads_n-2; el++) {
+    for (size_t el = 0; el < threads_n-2; el++) {
         thread_ptrs_lst.append(QSharedPointer<CountingThread>(new CountingThread(readBlocksQ, localDictsQ)));
+        thread_ptrs_lst.back()->start(); // Start as soon as possible.
     }
+
     MergingThread merging_thr(localDictsQ, wordsMap);
 
-    //! Замір часу створення потоків важливий, однак тут він може зіпсувати
-    //! трохи результати -- вставивши бар'єри пам'яті та заважаючи компілятору
-    //! оптимізувати.
-    // auto indexing_start_time = get_current_time_fenced();
-    reader_thr.start();
     // QThread::run() runs code in this thread,
     // QThread::start() -- in target thread
-    for (auto& thread : thread_ptrs_lst) {
-        thread->start();
-    }
     merging_thr.run(); // Можемо собі дозволити працювати в цьому потоці -- новий не потрібен.
-
-
 
     reader_thr.wait();
     for (auto& thread : thread_ptrs_lst) {
