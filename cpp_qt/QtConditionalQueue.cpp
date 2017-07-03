@@ -10,12 +10,14 @@
 #include <QMutexLocker>
 #include <QTextStream>
 #include <QFile>
-#include <QDebug>
+#include <QMap>
 #include <QThread>
 #include <QCoreApplication>
 #include <QSharedPointer>
 #include <QAtomicInteger>
 #include <QException>
+
+#include "q_clean_words.hpp"
 
 //! Немає сенсу переписувати допоміжні інструменти на Qt
 #include "../cxx/aux_tools.hpp"
@@ -77,6 +79,9 @@ void ReadingThread::run()
 
     if (inputFile.open(QIODevice::ReadOnly)) {
         QTextStream in(&inputFile);
+        in.setCodec("UTF-8");   // Ми враховуємо лише ASCII-символи, але
+                                // це потрібно для коректного (ну, чи просто --
+                                // такого ж, як в "голому" С++) розбиття на слова
         QString word;
         while (!in.atEnd()) {
             in >> word;
@@ -128,8 +133,6 @@ void CountingThread::run()
 {
 
     while (true) {
-        //qDebug() << done_count << " : COUNT";
-        QString l;
         QMutexLocker lk(&blocksQue.mtx);
         if (!blocksQue.que.empty()) {
             string_list_type v;
@@ -137,14 +140,9 @@ void CountingThread::run()
             blocksQue.que.dequeue();
             lk.unlock();
             map_type local_dictionary;
-            for (int i = 0; i < v.size(); i++) {
-                QTextStream in(&v[i]);
-                while (!in.atEnd()) {
-                    in >> l;
-                    l =  l.remove(remove_if(l.begin(), l.end(), [](QChar x) {return !x.isLetter() && !x.isDigit();} )
-                    - l.begin(), l.size() ).toLower();
-                    ++local_dictionary[l];
-                }
+            for(auto& word: v){
+                    qtCleanWord(word);
+                    ++local_dictionary[word];
             }
             QMutexLocker other_lk(&mapsQue.mtx);
             mapsQue.que.enqueue(local_dictionary);
@@ -204,6 +202,8 @@ void MergingThread::run()
 
 int main(int argc, char* argv[])
 {
+    setlocale(LC_ALL,"C");
+
     QCoreApplication app(argc, argv);
 
     auto config = read_config("data_input_conc.txt");
@@ -270,6 +270,8 @@ int main(int argc, char* argv[])
 
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt
+
+
 
     std::map<std::string, unsigned int> cpp_map;
     for(auto iter = wordsMap.begin(); iter != wordsMap.end(); ++iter)
