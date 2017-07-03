@@ -39,9 +39,9 @@ private:
     Container que;
     condition_variable cv;
     mutex mtx;
-    atomic<int> left_threads;
+    atomic<size_t> left_threads;
 public:
-    SimpleQueStruct(int thr): left_threads(thr){}
+    SimpleQueStruct(size_t thr): left_threads(thr){}
 
     ~SimpleQueStruct(){
         // Just sanity check.
@@ -143,15 +143,15 @@ void mergeMapsConsumer(SimpleQueStruct<map_type>& dq1, map_type& wordsMap) {
 
 
 int main() {
-
+    setlocale(LC_ALL,"C");
 
     auto config = read_config("data_input_conc.txt");
 
     string infile    = config["infile"];
     string out_by_a  = config["out_by_a"];
     string out_by_n  = config["out_by_n"];
-    int    blockSize = str_to_val<unsigned>(config["blockSize"]);
-    int    threads_n = str_to_val<unsigned>(config["threads"]);
+    size_t blockSize = str_to_val<size_t>(config["blockSize"]);
+    size_t threads_n = str_to_val<size_t>(config["threads"]);
 
     string etalon_a_file  = config["etalon_a_file"];
 
@@ -172,10 +172,8 @@ int main() {
 
     threads.emplace_back(fileReaderProducer, ref(data_file), ref(readBlocksQ), blockSize);
 
-    int thrIter = 1;
-    while(thrIter != threads_n-1){
+    for( size_t i = 0; i < threads_n-2; ++i ){
         threads.emplace_back( countWordsConsumer, ref(readBlocksQ), ref(localDictsQ) );
-        thrIter++;
     }
 
     // threads.emplace_back(mergeMapsConsumer, ref(localDictsQ), ref(wordsMap));

@@ -77,6 +77,7 @@ vector<vector<string>::iterator> SplitVector(vector<string>& vec, size_t n) {
 
 
 int main(int argc, char *argv[]) {
+    setlocale(LC_ALL,"C");
     auto config = read_config("data_input_conc.txt");
 
     string infile    = config["infile"];
