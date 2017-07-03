@@ -179,13 +179,11 @@ int main() {
     }
 
     // threads.emplace_back(mergeMapsConsumer, ref(localDictsQ), ref(wordsMap));
-    //mergeMapsConsumer(localDictsQ, wordsMap);
+    mergeMapsConsumer(localDictsQ, wordsMap);
 
     for (auto& th : threads) {
         th.join();
     }
-
-	mergeMapsConsumer(localDictsQ, wordsMap);
 
     //=============================================================
 	auto finishConsumer = get_current_time_fenced();
