@@ -43,6 +43,48 @@ public:
         Q_ASSERT_X( left_threads == 0, "~QSimpleQueStruct()",
                       "Que destroyed before all users stopped.");
     }
+    //! So-called universal reference -- template + &&, moves if possible.
+    //! Compiles only for rvalue references, for example temporatire and move-ed variables
+    void enque(T&& lines )
+    {
+        QMutexLocker ll(&mtx);
+        que.enqueue(move(lines));
+        cv.wakeOne();
+    }
+
+    void one_thread_done()
+    {
+        --left_threads;
+        QMutexLocker ll(&mtx);
+        cv.wakeAll();
+    }
+
+    //! Returns true and saves data to argument, if have one
+    //! returns false otherwise.
+    bool dequeue(T& lines )
+    {
+        while(true)
+        {
+            QMutexLocker luk(&mtx);
+            if (!que.empty()) {
+                lines=move(que.head());
+                que.dequeue();
+                return true;
+            } else {
+                if(left_threads == 0) {
+                    return false;
+                }
+                cv.wait(&mtx);
+            }
+        }
+
+    }
+
+    size_t size() const
+    {
+        return que.size();
+    }
+
 };
 
 class CCException: public QException
@@ -80,30 +122,21 @@ void ReadingThread::run()
         QTextStream in(&inputFile);
         in.setCodec("UTF-8");   // Ми враховуємо лише ASCII-символи, але
                                 // це потрібно для коректного (ну, чи просто --
-                                // такого ж, як в "голому" С++) розбиття на слова
-        QString word;
+                                // такого ж, як в "голому" С++) розбиття на слова        
         while (!in.atEnd()) {
+            QString word;
             in >> word;
-            words.append(word);
+            words.append(move(word));
             if (words.size() == blockSize) {
-                QMutexLocker lck(&blocksQue.mtx);
-                blocksQue.que.enqueue(words);
-                blocksQue.cv.wakeOne();
-                lck.unlock();
+                blocksQue.enque(move(words));
                 words.clear();
             }
         }
         if (words.size() != 0) {
-
-            QMutexLocker lck(&blocksQue.mtx);
-            blocksQue.que.append(words);
-            blocksQue.cv.wakeOne();
-            //lck.unlock();
+            blocksQue.enque(move(words));
         }
-        inputFile.close();
-        --blocksQue.left_threads;
-        QMutexLocker lck(&blocksQue.mtx);
-        blocksQue.cv.wakeAll();
+        blocksQue.one_thread_done();
+        //inputFile.close(); // Closed in destructor
     }
     else {
         qDebug() << "Error reading file: " + filename;
@@ -130,34 +163,19 @@ CountingThread::CountingThread(QSimpleQueStruct<string_list_type>& blocksQue_,
 
 void CountingThread::run()
 {
-
-    while (true) {
-        QMutexLocker lk(&blocksQue.mtx);
-        if (!blocksQue.que.empty()) {
-            string_list_type v{blocksQue.que.head()};
-            blocksQue.que.dequeue();
-            lk.unlock();
-            map_type local_dictionary;
-            for(auto& word: v){
-                    qtCleanWord(word);
-                    ++local_dictionary[word];
-            }
-            QMutexLocker other_lk(&mapsQue.mtx);
-            mapsQue.que.enqueue(local_dictionary);
-            mapsQue.cv.wakeOne();
-        }else
-        {
-            if (blocksQue.left_threads == 0) {
-                break;
-            }
-            else {
-                blocksQue.cv.wait(&blocksQue.mtx);
-            }
+    string_list_type v;
+    while(blocksQue.dequeue(v))
+    {
+        map_type local_dictionary;
+        for(auto& word: v){
+                qtCleanWord(word);
+                ++local_dictionary[word];
         }
+        mapsQue.enque(move(local_dictionary));
+        // local_dictionary is recreated every time -- no need for clear
     }
-    --mapsQue.left_threads;
-    QMutexLocker other_lk(&mapsQue.mtx);
-    mapsQue.cv.wakeAll();
+
+    mapsQue.one_thread_done();
 }
 
 
@@ -179,21 +197,11 @@ MergingThread::MergingThread(QSimpleQueStruct<map_type>& mapsQue_, map_type& wor
 
 void MergingThread::run()
 {
-    while (true) {
-        QMutexLocker luk1(&mapsQue.mtx);
-        if (mapsQue.que.size() != 0) {
-            map_type local_dictionary{mapsQue.que.head()};
-            mapsQue.que.dequeue();
-            luk1.unlock();
-            for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
-                wordsMap[itr.key()] += itr.value();
-            }
-        }else{
-            if ( mapsQue.left_threads == 0) {
-                break;
-            }else{
-                mapsQue.cv.wait(&mapsQue.mtx);
-            }
+    map_type local_dictionary;
+    while(mapsQue.dequeue(local_dictionary))
+    {
+        for (auto itr = local_dictionary.cbegin(); itr != local_dictionary.cend(); ++itr) {
+            wordsMap[itr.key()] += itr.value();
         }
     }
 }
