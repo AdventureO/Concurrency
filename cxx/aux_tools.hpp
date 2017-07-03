@@ -29,7 +29,8 @@ template<typename KeyT, typename ValueT>
 void write_sorted_by_key( std::ostream& file, const std::map<KeyT, ValueT>& data )
 {
     for(auto& item: data)
-        file << item.first << ": " << item.second << '\n';
+        if(!item.first.empty())
+            file << item.first << ": " << item.second << '\n';
     // '\n' does not flushes the buffers, so is faster than endl.
 }
 
@@ -47,7 +48,8 @@ void write_sorted_by_key( std::ostream& file, const MapT& data )
     std::sort(VectorOfItems.begin(), VectorOfItems.end());
 
     for(auto& item: VectorOfItems)
-        file << item.first << ": " << item.second << '\n';
+        if(!item.first.empty())
+            file << item.first << ": " << item.second << '\n';
 }
 
 
@@ -81,7 +83,8 @@ void write_sorted_by_value( std::ostream& file, const mapT& data)
     );
 
     for(auto& item: VectorOfItems)
-        file << item.first << ": " << item.second << '\n';
+        if(!item.first.empty())
+            file << item.first << ": " << item.second << '\n';
 }
 
 template<typename MapT>
