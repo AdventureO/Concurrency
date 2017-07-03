@@ -13,13 +13,14 @@ find_package(Qt5Core)
 
 get_target_property(QtCore_location Qt5::Core LOCATION)
 
+set(Q_COMMON_FILES  ../cxx/aux_tools.hpp ../cxx/aux_tools.cpp
+                    q_clean_words.hpp q_clean_words.cpp)
 
-add_executable(QtConditionalQueue QtConditionalQueue.cpp
-        ../cxx/aux_tools.hpp ../cxx/aux_tools.cpp
-        q_clean_words.hpp q_clean_words.cpp )
-add_executable(q_seq_etalon q_seq_etalon.cpp
-        ../cxx/aux_tools.hpp ../cxx/aux_tools.cpp
-        q_clean_words.hpp q_clean_words.cpp)
+add_executable(QtConditionalQueue QtConditionalQueue.cpp ${Q_COMMON_FILES})
+add_executable(QtRawThreads QtRawThreads.cpp ${Q_COMMON_FILES})
+add_executable(q_seq_etalon q_seq_etalon.cpp ${Q_COMMON_FILES})
 
 target_link_libraries(QtConditionalQueue Qt5::Core)
+target_link_libraries(QtRawThreads Qt5::Core)
 target_link_libraries(q_seq_etalon Qt5::Core)
+

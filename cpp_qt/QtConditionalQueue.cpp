@@ -25,7 +25,8 @@
 using namespace std;
 
 using map_type = QMap<QString, unsigned int>;
-using string_list_type = QStringList; //  QVector<QString>
+//using string_list_type = QStringList; //  QVector<QString>
+using string_list_type = QVector<QString>;
 
 template<typename T, typename Container=QQueue<T>>
 class QSimpleQueStruct
@@ -270,9 +271,6 @@ int main(int argc, char* argv[])
 
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt
-
-
-
     std::map<std::string, unsigned int> cpp_map;
     for(auto iter = wordsMap.begin(); iter != wordsMap.end(); ++iter)
     {
