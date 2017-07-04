@@ -42,7 +42,6 @@ string_list_type qtReadData(const QString& filename) {
     return lst;
 }
 
-
 QVector<string_list_type::iterator> splitWork(string_list_type& data_lst, size_t threads) {
     QVector<string_list_type::iterator> general;
     auto part_length = data_lst.size() / threads;
@@ -111,7 +110,6 @@ void CountingThread::run() {
 
 int main(int argc, char *argv[], char**env)
 {
-
     setlocale(LC_ALL,"C");
 
     QCoreApplication app(argc, argv);
@@ -121,7 +119,6 @@ int main(int argc, char *argv[], char**env)
     QString infile      = QString::fromStdString(config["infile"]);
     QString out_by_a    = QString::fromStdString(config["out_by_a"]);
     QString out_by_n    = QString::fromStdString(config["out_by_n"]);
-    size_t blockSize    = str_to_val<size_t>(config["blockSize"]);
     size_t threads_n    = str_to_val<size_t>(config["threads"]);
 
     QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
@@ -160,8 +157,8 @@ int main(int argc, char *argv[], char**env)
     //auto reading_time = to_us(indexing_start_time - reading_start_time);
     auto total_time = to_us(indexing_done_time - reading_start_time);
 
-    cout << "Total time    : " << indexing_time << endl;
-    cout << "Analisys time : " << total_time << endl;
+    cout << "Total time    : " << total_time << endl;
+    cout << "Analisys time : " << indexing_time << endl;
 
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt
@@ -180,6 +177,5 @@ int main(int argc, char *argv[], char**env)
         are_correct = compareFiles(out_by_a.toStdString(), etalon_a_file.toStdString());
     }
     return !are_correct;
-
 }
 
