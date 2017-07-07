@@ -64,21 +64,14 @@ public:
     //! returns false otherwise.
     bool dequeue(T& lines )
     {
-        while(true)
-        {
-            QMutexLocker luk(&mtx);
-            if (!que.empty()) {
-                lines=move(que.head());
-                que.dequeue();
-                return true;
-            } else {
-                if(left_threads == 0) {
-                    return false;
-                }
-                cv.wait(&mtx);
-            }
-        }
-
+        QMutexLocker luk(&mtx);
+        while( que.empty() && left_threads != 0 )
+            cv.wait(&mtx);
+        if(left_threads == 0 && que.empty() )
+            return false;
+        lines=move(que.head());
+        que.dequeue();
+        return true;
     }
 
     size_t size() const
