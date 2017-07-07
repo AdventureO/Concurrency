@@ -69,29 +69,20 @@ public:
     //! returns false otherwise.
     bool dequeue(T& lines )
     {
-        while(true)
-        {
-            unique_lock<mutex> luk(mtx);
-            if (!que.empty()) {
-                lines=move(que.front());
-                que.pop_front();
-                //luk.unlock();
-                return true;
-            } else {
-                if(left_threads == 0) {
-                    return false;
-                }
-                cv.wait(luk);
-            }
-        }
-
+        unique_lock<mutex> luk(mtx);
+        // cv.wait() checks condition before waiting.
+        cv.wait(luk, [this](){return !que.empty() || left_threads == 0;});
+        if(left_threads == 0 && que.empty() )
+            return false;
+        lines=move(que.front());
+        que.pop_front();
+        return true;
     }
 
     size_t size() const
     {
         return que.size();
     }
-
 
 };
 
