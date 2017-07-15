@@ -11,8 +11,13 @@
 #include <algorithm>
 #include <map>
 #include <unordered_map>
+#include <cassert>
 
 inline std::chrono::high_resolution_clock::time_point get_current_time_fenced() {
+#ifndef __CYGWIN__
+    assert(std::chrono::high_resolution_clock::is_steady &&
+           "Timer should be steady (monotonic).");
+#endif
     std::atomic_thread_fence(std::memory_order_seq_cst);
     auto res_time = std::chrono::high_resolution_clock::now();
     std::atomic_thread_fence(std::memory_order_seq_cst);
