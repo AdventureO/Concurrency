@@ -52,10 +52,8 @@ public:
     //! Compiles only for rvalue references, for example temporatire and move-ed variables
     void enque(T&& lines )
     {
-        {
-            lock_guard<mutex> ll(mtx);
-            que.push_back(move(lines));
-        }
+        lock_guard<mutex> ll(mtx);
+        que.push_back(move(lines));
         cv.notify_one();
     }
 
@@ -175,14 +173,15 @@ int main() {
     }
 
     //=============================================================
-	auto finishConsumer = get_current_time_fenced();
+
+    auto finishConsumer = get_current_time_fenced();
 
     write_sorted_by_key(out_by_a, wordsMap);
     write_sorted_by_value(out_by_n, wordsMap);
 
     auto total = finishConsumer - startProducer;
 
-    cout << "Total time: " << to_us(total) << endl;
+    cout << "Total time: " << to_us_old(total) << endl;
 
     bool are_correct = true;
     if( !etalon_a_file.empty() )
@@ -190,7 +189,7 @@ int main() {
         are_correct = compareFiles(out_by_a, etalon_a_file);
     }
 #ifdef _MSC_VER
-	system("pause");
+    //system("pause");
 #endif
     return !are_correct;
 }
