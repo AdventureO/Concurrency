@@ -1,6 +1,7 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
+
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -12,6 +13,9 @@
 #include <chrono>
 #include <atomic>
 #include <sstream>
+
+#include "measurements.hpp"
+
 
 #include "aux_tools.hpp"
 #include "clean_words.hpp"
@@ -71,8 +75,10 @@ vector<vector<string>::iterator> SplitVector(vector<string>& vec, size_t n) {
     return outVec;
 }
 
-
 int main(int argc, char *argv[]) {
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements);
+
     setlocale(LC_ALL,"C");
     auto config = read_config("data_input_conc.txt");
 
@@ -84,8 +90,9 @@ int main(int argc, char *argv[]) {
     string etalon_a_file  = config["etalon_a_file"];
 
     //=============================================================
-    auto start = get_current_time_fenced();
- 
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
+
     ifstream data_file(infile);
     if (!data_file.is_open()) {
         cerr << "Error reading from file: " << infile << endl;
@@ -95,7 +102,8 @@ int main(int argc, char *argv[]) {
     data_file.close();
 
     //=============================================================
-    auto readed = get_current_time_fenced();
+    int started_cnt_idx = measurements.mark_start("Started counting");
+    measurements.measure();
 
     mutex mtx;
     map_type wordsMap;
@@ -110,16 +118,29 @@ int main(int argc, char *argv[]) {
     for (auto& th : threads) th.join();
 
     //=============================================================
-    auto finished = get_current_time_fenced();
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
+    measurements.mark_finish(started_cnt_idx);
+
 
     write_sorted_by_key(out_by_a, wordsMap);
     write_sorted_by_value(out_by_n, wordsMap);
 
-    auto counting = finished - readed;
-    auto total = finished - start;
-
-    cout << "Total time    : " << to_us(total) << endl;
-    cout << "Analisys time : " << to_us(counting) << endl;
+    cout << "Total:" << endl;
+    (measurements.wt[2] - measurements.wt[0]).print(cout);
+    cout << "Analisys:" << endl;
+    (measurements.wt[2] - measurements.wt[1]).print(cout);
+    cout << "=========System=specific=data=====================" << endl;
+    cout << "Total:" << endl;
+    (measurements.st[2] - measurements.st[0]).print(cout, "Process");
+    cout << "Analisys:" << endl;
+    (measurements.st[2] - measurements.st[1]).print(cout, "Process");
+    cout << "=========CPU=data===========================" << endl;
+    cout << "Total:" << endl;
+    print_cpu_params(measurements.ct[0], measurements.ct[2]);
+    cout << "Analisys:" << endl;
+    print_cpu_params(measurements.ct[1], measurements.ct[2]);
+    cout << "=========Auxiliary=data===========================" << endl;
 
     bool are_correct = true;
     if( !etalon_a_file.empty() )

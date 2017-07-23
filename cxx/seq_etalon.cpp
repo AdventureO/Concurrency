@@ -84,6 +84,6 @@ int main()
 
     auto total = finish - start;
 
-    cout << "Total time: " << to_us(total) << endl;
+    cout << "Total time: " << to_us_old(total) << endl;
     return 0;
 }

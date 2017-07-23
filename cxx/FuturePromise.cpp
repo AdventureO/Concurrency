@@ -135,8 +135,8 @@ int main(int argc, char *argv[]) {
     auto counting = finished - readed;
     auto total = finished - start;
 
-    cout << "Total time    : " << to_us(total) << endl;
-    cout << "Analisys time : " << to_us(counting) << endl;
+    cout << "Total time    : " << to_us_old(total) << endl;
+    cout << "Analisys time : " << to_us_old(counting) << endl;
 
     bool are_correct = true;
     if( !etalon_a_file.empty() )
