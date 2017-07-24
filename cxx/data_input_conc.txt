@@ -12,4 +12,4 @@ etalon_a_file = "res_a_etalon.txt"
 # 2 -- SYS_MSM
 # 4 -- CPU_MSM
 # For example, 1 -- measure only times, 7 -- measure all
-measurement_flags = 1
+measurement_flags = 7
