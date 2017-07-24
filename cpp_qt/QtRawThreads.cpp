@@ -19,6 +19,7 @@ using namespace std;
 
 //! Немає сенсу переписувати допоміжні інструменти на Qt
 #include "../cxx/aux_tools.hpp"
+#include "../cxx/measurements.hpp"
 
 using map_type = QMap<QString, unsigned int>;
 using string_list_type = QStringList; //  QVector<QString>
@@ -123,8 +124,13 @@ int main(int argc, char *argv[], char**env)
 
     QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
 
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
     //=============================================================
-    auto reading_start_time = get_current_time_fenced();
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
 
     map_type wordsMap;
     QMutex mutex;
@@ -138,7 +144,8 @@ int main(int argc, char *argv[], char**env)
 
     auto work_parts = splitWork(words_lst, threads_n);
 
-    auto indexing_start_time = get_current_time_fenced();
+    int started_cnt_idx = measurements.mark_start("Started counting");
+    measurements.measure();
 
     QVector<QSharedPointer<CountingThread>> thread_ptrs_lst;
     for (auto a = work_parts.begin(); a < work_parts.end()-1; ++a) {
@@ -150,16 +157,35 @@ int main(int argc, char *argv[], char**env)
     for (auto thread: thread_ptrs_lst){
          thread->wait();
     }
-    auto indexing_done_time = get_current_time_fenced();
-
     //=============================================================
-    auto indexing_time = to_us(indexing_done_time - indexing_start_time);
-    //auto reading_time = to_us(indexing_start_time - reading_start_time);
-    auto total_time = to_us(indexing_done_time - reading_start_time);
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
+    measurements.mark_finish(started_cnt_idx);
 
-    cout << "Total time    : " << total_time << endl;
-    cout << "Analisys time : " << indexing_time << endl;
-
+    if(measurements.mts & all_measurements_t::BASE_MSM)
+    {
+        cout << "Total:" << endl;
+        (measurements.wt[2] - measurements.wt[0]).print(cout);
+        cout << "Analisys:" << endl;
+        (measurements.wt[2] - measurements.wt[1]).print(cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        cout << "=========System=specific=data=====================" << endl;
+        cout << "Total:" << endl;
+        (measurements.st[2] - measurements.st[0]).print(cout, "Process");
+        cout << "Analisys:" << endl;
+        (measurements.st[2] - measurements.st[1]).print(cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        cout << "=========CPU=data===========================" << endl;
+        cout << "Total:" << endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[2]);
+        cout << "Analisys:" << endl;
+        print_cpu_params(measurements.ct[1], measurements.ct[2]);
+        cout << "=========Auxiliary=data===========================" << endl;
+    }
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt
     std::map<std::string, unsigned int> cpp_map;

@@ -21,6 +21,7 @@
 
 //! Немає сенсу переписувати допоміжні інструменти на Qt
 #include "../cxx/aux_tools.hpp"
+#include "../cxx/measurements.hpp"
 
 using namespace std;
 
@@ -217,8 +218,13 @@ int main(int argc, char* argv[])
 
     QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
 
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
     //=============================================================
-    auto creating_threads_start_time = get_current_time_fenced();
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
 
     map_type wordsMap;
     QSimpleQueStruct<string_list_type> readBlocksQ{1};
@@ -232,6 +238,7 @@ int main(int argc, char* argv[])
     ReadingThread reader_thr(infile, blockSize, readBlocksQ);
     reader_thr.start(); // Start as soon as possible.
 
+    int started_cnt_idx = measurements.mark_start("Started counting");
     //! Без динамічної пам'яті тут обійтися важко
     //! Але спростимо собі керування нею.
     //! На жаль, через "креативність" розробників Qt (https://stackoverflow.com/questions/34761327/qlist-of-qscopedpointers)
@@ -242,6 +249,7 @@ int main(int argc, char* argv[])
         thread_ptrs_lst.back()->start(); // Start as soon as possible.
     }
 
+    int started_mrg_idx = measurements.mark_start("Started mergin");
     MergingThread merging_thr(localDictsQ, wordsMap);
 
     // QThread::run() runs code in this thread,
@@ -256,12 +264,29 @@ int main(int argc, char* argv[])
     merging_thr.wait();
 
     //=============================================================
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
+    measurements.mark_finish(started_cnt_idx);
+    measurements.mark_finish(started_mrg_idx);
 
-    auto indexing_done_time = get_current_time_fenced();
-
-    auto time_res = to_us(indexing_done_time - creating_threads_start_time);
-    cout << "Total time : " << time_res << endl;
-
+    if(measurements.mts & all_measurements_t::BASE_MSM)
+    {
+        cout << "Total:" << endl;
+        (measurements.wt[1] - measurements.wt[0]).print(cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        cout << "=========System=specific=data=====================" << endl;
+        cout << "Total:" << endl;
+        (measurements.st[1] - measurements.st[0]).print(cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        cout << "=========CPU=data===========================" << endl;
+        cout << "Total:" << endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[1]);
+        cout << "=========Auxiliary=data===========================" << endl;
+    }
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt
     std::map<std::string, unsigned int> cpp_map;

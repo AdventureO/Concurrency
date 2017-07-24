@@ -13,22 +13,6 @@
 #include <unordered_map>
 #include <cassert>
 
-inline std::chrono::high_resolution_clock::time_point get_current_time_fenced() {
-#ifndef __CYGWIN__
-    assert(std::chrono::high_resolution_clock::is_steady &&
-           "Timer should be steady (monotonic).");
-#endif
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-    auto res_time = std::chrono::high_resolution_clock::now();
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-    return res_time;
-}
-
-template<class D>
-inline long long to_us_old(const D& d) {
-    return std::chrono::duration_cast<std::chrono::microseconds>(d).count();
-}
-
 //! std::map is sorted by keys.
 template<typename KeyT, typename ValueT>
 void write_sorted_by_key( std::ostream& file, const std::map<KeyT, ValueT>& data )

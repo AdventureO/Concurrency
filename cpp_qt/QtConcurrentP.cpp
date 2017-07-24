@@ -11,6 +11,7 @@
 
 //! Немає сенсу переписувати допоміжні інструменти на Qt
 #include "../cxx/aux_tools.hpp"
+#include "../cxx/measurements.hpp"
 
 using map_type = QMap<QString, unsigned int>;
 using string_list_type = QStringList;
@@ -82,8 +83,13 @@ int main(int argc, char *argv[])
 
     QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
 
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
     //=============================================================
-    auto reading_start_time = get_current_time_fenced();
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
 
     string_list_type words_lst = qtReadData(infile);
     if (words_lst.isEmpty()) {
@@ -94,20 +100,42 @@ int main(int argc, char *argv[])
 
     auto work_parts = splitWork(words_lst, threads_n);
 
-    auto indexing_start_time = get_current_time_fenced();
+    int started_cnt_idx = measurements.mark_start("Started counting");
+    measurements.measure();
 
     auto resultFuture = QtConcurrent::mappedReduced(work_parts, mapper, reducer);
 
     map_type wordsMap = resultFuture.result();
 
-    auto indexing_done_time = get_current_time_fenced();
     //=============================================================
-    auto indexing_time = to_us(indexing_done_time - indexing_start_time);
-    //auto reading_time = to_us(indexing_start_time - reading_start_time);
-    auto total_time = to_us(indexing_done_time - reading_start_time);
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
+    measurements.mark_finish(started_cnt_idx);
 
-    std::cout << "Total time    : " << total_time << std::endl;
-    std::cout << "Analisys time : " << indexing_time << std::endl;
+    if(measurements.mts & all_measurements_t::BASE_MSM)
+    {
+        std::cout << "Total:" << std::endl;
+        (measurements.wt[2] - measurements.wt[0]).print(std::cout);
+        std::cout << "Analisys:" << std::endl;
+        (measurements.wt[2] - measurements.wt[1]).print(std::cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        std::cout << "=========System=specific=data=====================" << std::endl;
+        std::cout << "Total:" << std::endl;
+        (measurements.st[2] - measurements.st[0]).print(std::cout, "Process");
+        std::cout << "Analisys:" << std::endl;
+        (measurements.st[2] - measurements.st[1]).print(std::cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        std::cout << "=========CPU=data===========================" << std::endl;
+        std::cout << "Total:" << std::endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[2]);
+        std::cout << "Analisys:" << std::endl;
+        print_cpu_params(measurements.ct[1], measurements.ct[2]);
+        std::cout << "=========Auxiliary=data===========================" << std::endl;
+    }
 
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt

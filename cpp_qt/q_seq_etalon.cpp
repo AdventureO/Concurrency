@@ -10,7 +10,9 @@
 #include <QException>
 
 #include "../cxx/aux_tools.hpp"
+#include "../cxx/measurements.hpp"
 #include "q_clean_words.hpp"
+
 
 using map_type = QMap<QString, unsigned int>;
 using string_list_type = QStringList; //  QVector<QString>
@@ -34,12 +36,16 @@ int main(int argc, char* argv[])
     QString infile      = QString::fromStdString(config["infile"]);
     QString out_by_a    = QString::fromStdString(config["out_by_a"]);
     QString out_by_n    = QString::fromStdString(config["out_by_n"]);
-    size_t blockSize    = str_to_val<size_t>(config["blockSize"]);
-    size_t threads_n    = str_to_val<size_t>(config["threads"]);
 
     QString etalon_a_file  = QString::fromStdString(config["etalon_a_file"]);
+
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
     //=============================================================
-    auto creating_threads_start_time = get_current_time_fenced();
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
 
     map_type wordsMap;
     QFile inputFile(infile);
@@ -60,10 +66,27 @@ int main(int argc, char* argv[])
     }
 
     //=============================================================
-    auto indexing_done_time = get_current_time_fenced();
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
 
-    auto time_res = to_us(indexing_done_time - creating_threads_start_time);
-    std::cout << "Total time : " << time_res << std::endl;
+    if(measurements.mts & all_measurements_t::BASE_MSM)
+    {
+        std::cout << "Total:" << std::endl;
+        (measurements.wt[1] - measurements.wt[0]).print(std::cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        std::cout << "=========System=specific=data=====================" << std::endl;
+        std::cout << "Total:" << std::endl;
+        (measurements.st[1] - measurements.st[0]).print(std::cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        std::cout << "=========CPU=data===========================" << std::endl;
+        std::cout << "Total:" << std::endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[1]);
+        std::cout << "=========Auxiliary=data===========================" << std::endl;
+    }
 
     //=============================================================
     //! Чисто з ліні -- щоб не переносити функції збереження під Qt

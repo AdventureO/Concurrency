@@ -115,14 +115,11 @@ int main(int argc, char *argv[]) {
 
     auto work_parts{SplitVector(words, threads_n)};
 
-    auto startPar = get_current_time_fenced();
-
     for (auto a = work_parts.begin(); a < work_parts.end()-1; ++a) {
         promise<map_type> rg;
         result_futures.push_back(rg.get_future());
         threads.emplace_back(wordCounterWrapper<vector<string>::iterator>, *a, *(a + 1), move(rg) );
     }
-
 
     //TODO: Implement scan for ready futures
     for(auto& result : result_futures)
