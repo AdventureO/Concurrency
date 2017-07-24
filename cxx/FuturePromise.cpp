@@ -17,6 +17,8 @@
 #include "aux_tools.hpp"
 #include "clean_words.hpp"
 
+#include "measurements.hpp"
+
 using namespace std;
 
 #ifdef USE_UNORDERED_MAP
@@ -87,8 +89,13 @@ int main(int argc, char *argv[]) {
 
     string etalon_a_file  = config["etalon_a_file"];
 
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
     //=============================================================
-    auto start = get_current_time_fenced();
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
 
     ifstream data_file(infile);
     if (!data_file.is_open()) {
@@ -99,7 +106,8 @@ int main(int argc, char *argv[]) {
     data_file.close();
 
     //=============================================================
-    auto readed = get_current_time_fenced();
+    int started_cnt_idx = measurements.mark_start("Started counting");
+    measurements.measure();
 
     map_type wordsMap;
     vector< future<map_type> > result_futures;
@@ -127,16 +135,37 @@ int main(int argc, char *argv[]) {
     }
 
     //=============================================================
-    auto finished = get_current_time_fenced();
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
+    measurements.mark_finish(started_cnt_idx);
 
     write_sorted_by_key(out_by_a, wordsMap);
     write_sorted_by_value(out_by_n, wordsMap);
 
-    auto counting = finished - readed;
-    auto total = finished - start;
-
-    cout << "Total time    : " << to_us_old(total) << endl;
-    cout << "Analisys time : " << to_us_old(counting) << endl;
+    if(measurements.mts & all_measurements_t::BASE_MSM)
+    {
+        cout << "Total:" << endl;
+        (measurements.wt[2] - measurements.wt[0]).print(cout);
+        cout << "Analisys:" << endl;
+        (measurements.wt[2] - measurements.wt[1]).print(cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        cout << "=========System=specific=data=====================" << endl;
+        cout << "Total:" << endl;
+        (measurements.st[2] - measurements.st[0]).print(cout, "Process");
+        cout << "Analisys:" << endl;
+        (measurements.st[2] - measurements.st[1]).print(cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        cout << "=========CPU=data===========================" << endl;
+        cout << "Total:" << endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[2]);
+        cout << "Analisys:" << endl;
+        print_cpu_params(measurements.ct[1], measurements.ct[2]);
+        cout << "=========Auxiliary=data===========================" << endl;
+    }
 
     bool are_correct = true;
     if( !etalon_a_file.empty() )

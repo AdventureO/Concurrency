@@ -124,7 +124,6 @@ int main(int argc, char *argv[]) {
     measurements.mark_finish(started_mark_idx);
     measurements.mark_finish(started_cnt_idx);
 
-
     write_sorted_by_key(out_by_a, wordsMap);
     write_sorted_by_value(out_by_n, wordsMap);
 

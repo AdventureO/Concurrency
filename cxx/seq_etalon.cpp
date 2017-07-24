@@ -6,6 +6,9 @@
 #include "aux_tools.hpp"
 #include "clean_words.hpp"
 
+#include "measurements.hpp"
+
+
 using namespace std;
 
 #ifdef USE_UNORDERED_MAP
@@ -16,7 +19,7 @@ using map_type = map<string, unsigned int>;
 
 int main()
 {
-    //! Щоб не втонути в націоналньих налаштуваннях, вирішив
+    //! Щоб не втонути в національних налаштуваннях, вирішив
     //! всюди використовувати C-локаль, і викидати всі символи,
     //! які не є ASCII-літерами чи цифрами.
     //! (Тому фільтрую по !isalnum() а не ispunct()).
@@ -35,8 +38,13 @@ int main()
 
     string etalon_a_file  = config["etalon_a_file"];
 
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
     //=============================================================
-    auto start = get_current_time_fenced();
+    int started_mark_idx = measurements.mark_start("Started reading");
+    measurements.measure();
 
     map_type wordsMap;
 
@@ -53,37 +61,34 @@ int main()
         ++wordsMap[word];
     }
     //=============================================================
-    auto finish = get_current_time_fenced();
+    measurements.measure();
+    measurements.mark_finish(started_mark_idx);
 
-    ofstream file(out_by_a);
-    if (!file) {
-        cerr << "Could not open file " << out_by_a << endl;
-        return 1;
+    write_sorted_by_key(out_by_a, wordsMap);
+    write_sorted_by_value(out_by_n, wordsMap);
+    if( !etalon_a_file.empty() ){
+        write_sorted_by_key(etalon_a_file, wordsMap);
     }
-    write_sorted_by_key(file, wordsMap);
-    file.close();
 
-    //Write in file words by alphabet
-    ofstream file2(out_by_n);
-    if (!file2) {
-        cerr << "Could not open file " << out_by_n << endl;
-        return 1;
-    }
-    write_sorted_by_value(file2, wordsMap);
-    file2.close();
 
-    if( !etalon_a_file.empty() )
+    if(measurements.mts & all_measurements_t::BASE_MSM)
     {
-        ofstream fileEtalon(etalon_a_file);
-        if (!fileEtalon) {
-            cerr << "Could not open file " << etalon_a_file << endl;
-            return 1;
-        }
-        write_sorted_by_key(fileEtalon, wordsMap);
+        cout << "Total:" << endl;
+        (measurements.wt[1] - measurements.wt[0]).print(cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        cout << "=========System=specific=data=====================" << endl;
+        cout << "Total:" << endl;
+        (measurements.st[1] - measurements.st[0]).print(cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        cout << "=========CPU=data===========================" << endl;
+        cout << "Total:" << endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[1]);
+        cout << "=========Auxiliary=data===========================" << endl;
     }
 
-    auto total = finish - start;
-
-    cout << "Total time: " << to_us_old(total) << endl;
     return 0;
 }
