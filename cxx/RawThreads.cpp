@@ -76,9 +76,6 @@ vector<vector<string>::iterator> SplitVector(vector<string>& vec, size_t n) {
 }
 
 int main(int argc, char *argv[]) {
-    cpu_measurements_provider_t cpu_measurements;
-    all_measurements_t measurements(cpu_measurements);
-
     setlocale(LC_ALL,"C");
     auto config = read_config("data_input_conc.txt");
 
@@ -88,6 +85,11 @@ int main(int argc, char *argv[]) {
     size_t threads_n   = str_to_val<size_t>(config["threads"]);
 
     string etalon_a_file  = config["etalon_a_file"];
+
+    int measurement_flags = str_to_val<int>(config["measurement_flags"]);
+
+    cpu_measurements_provider_t cpu_measurements;
+    all_measurements_t measurements(cpu_measurements, measurement_flags);
 
     //=============================================================
     int started_mark_idx = measurements.mark_start("Started reading");
@@ -126,22 +128,30 @@ int main(int argc, char *argv[]) {
     write_sorted_by_key(out_by_a, wordsMap);
     write_sorted_by_value(out_by_n, wordsMap);
 
-    cout << "Total:" << endl;
-    (measurements.wt[2] - measurements.wt[0]).print(cout);
-    cout << "Analisys:" << endl;
-    (measurements.wt[2] - measurements.wt[1]).print(cout);
-    cout << "=========System=specific=data=====================" << endl;
-    cout << "Total:" << endl;
-    (measurements.st[2] - measurements.st[0]).print(cout, "Process");
-    cout << "Analisys:" << endl;
-    (measurements.st[2] - measurements.st[1]).print(cout, "Process");
-    cout << "=========CPU=data===========================" << endl;
-    cout << "Total:" << endl;
-    print_cpu_params(measurements.ct[0], measurements.ct[2]);
-    cout << "Analisys:" << endl;
-    print_cpu_params(measurements.ct[1], measurements.ct[2]);
-    cout << "=========Auxiliary=data===========================" << endl;
-
+    if(measurements.mts & all_measurements_t::BASE_MSM)
+    {
+        cout << "Total:" << endl;
+        (measurements.wt[2] - measurements.wt[0]).print(cout);
+        cout << "Analisys:" << endl;
+        (measurements.wt[2] - measurements.wt[1]).print(cout);
+    }
+    if(measurements.mts & all_measurements_t::SYS_MSM)
+    {
+        cout << "=========System=specific=data=====================" << endl;
+        cout << "Total:" << endl;
+        (measurements.st[2] - measurements.st[0]).print(cout, "Process");
+        cout << "Analisys:" << endl;
+        (measurements.st[2] - measurements.st[1]).print(cout, "Process");
+    }
+    if(measurements.mts & all_measurements_t::CPU_MSM)
+    {
+        cout << "=========CPU=data===========================" << endl;
+        cout << "Total:" << endl;
+        print_cpu_params(measurements.ct[0], measurements.ct[2]);
+        cout << "Analisys:" << endl;
+        print_cpu_params(measurements.ct[1], measurements.ct[2]);
+        cout << "=========Auxiliary=data===========================" << endl;
+    }
     bool are_correct = true;
     if( !etalon_a_file.empty() )
     {
