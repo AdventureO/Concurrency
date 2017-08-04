@@ -30,7 +30,7 @@ endif()
 # Little less optimization, but simple life for profiles
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -g")
-  IF(WIN32)
+  IF(WIN32) # ? use IF(MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_WIN32_WINNT=0x0600")
   ENDIF(WIN32)
   # Потрібне для RUSAGE_THREAD але код може стати нестандартним з точки зору
