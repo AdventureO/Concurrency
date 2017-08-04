@@ -17,14 +17,11 @@ def read_config(filename):
             res[name] = val
         return res
 
-# See also https://pypi.python.org/pypi/Unidecode
-import unicodedata
 def write_sorted_by_key(word_counter, file_name):
     with open(file_name, 'w', encoding='utf-8') as file:
         for (word, occurance) in sorted(word_counter.items()):
             if word:
-                file.write('{:15}:{:3}\n'.format(word.encode('ascii', 'ignore').decode('ascii', 'ignore'), occurance))
-                # file.write('{:15}:{:3}\n'.format( unicodedata.normalize('NFD', word), occurance))
+                file.write('{:15}:{:3}\n'.format(word, occurance))
 
 import operator
 def write_sorted_by_value(word_counter, file_name):
@@ -35,7 +32,7 @@ def write_sorted_by_value(word_counter, file_name):
 
 import itertools
 def compareFiles(filename1, filename2):
-    with open(filename1, 'r', encoding='utf-8') as file1,  open(filename2, 'r', encoding='utf-8') as file2:
+    with open(filename1, 'r') as file1,  open(filename2, 'r') as file2:
         data1 = file1.readlines()
         data2 = file2.readlines()
     data1 = [ ''.join(c for c in x if not c.isspace() ) for x in data1 ]
@@ -50,8 +47,10 @@ def compareFiles(filename1, filename2):
     return True
 # ===============================
 
+# Лише ASCII -- тому решта символів просто ігноруємо
 def readData(file_name):
-    with open(file_name, 'r', encoding='utf-8') as datafile:
+    # with open(file_name, 'r', encoding='utf-8') as datafile:
+    with open(file_name, 'r', encoding='ascii', errors='ignore') as datafile:
         return datafile.read().split()
 
 
