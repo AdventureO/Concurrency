@@ -1,8 +1,11 @@
 import threading
 import multiprocessing
 from time import time
-from string import punctuation
 
+def cleanWord(word):
+    word = ''.join(x.lower() for x in word if x.isalnum())
+    return word;
+# ===============================
 def read_config(filename):
     res = {}
     with open(filename, 'r', encoding='utf-8') as conf_file:
@@ -10,27 +13,47 @@ def read_config(filename):
             line = line.split('#',1)[0].strip() # Remove comments
             if not line:
                 continue
-            name,val = (x.strip() for x in line.split('=', 1))
+            name,val = (x.strip().strip('\"') for x in line.split('=', 1))
             res[name] = val
         return res
 
-def read_file(file_name):
-    words_list = []
-    for line in open(file_name, 'r', encoding='utf-8'):
-        for word in line.translate(line.maketrans("", "", punctuation)).lower().split():
-            words_list.append(word)
+# See also https://pypi.python.org/pypi/Unidecode
+import unicodedata
+def write_sorted_by_key(word_counter, file_name):
+    with open(file_name, 'w', encoding='utf-8') as file:
+        for (word, occurance) in sorted(word_counter.items()):
+            if word:
+                file.write('{:15}:{:3}\n'.format(word.encode('ascii', 'ignore').decode('ascii', 'ignore'), occurance))
+                # file.write('{:15}:{:3}\n'.format( unicodedata.normalize('NFD', word), occurance))
 
-    return words_list
+import operator
+def write_sorted_by_value(word_counter, file_name):
+    with open(file_name, 'w', encoding='utf-8') as file:
+        for (word, occurance) in sorted(word_counter.items(), key=operator.itemgetter(1)):  # key=lambda x: x[1]
+            if word:
+                file.write('{:15}:{:3}\n'.format(word, occurance))
 
-#    return [word for line in open(file_name, 'r') for word in line.replace(',','').replace('\'','').\
-#        replace('.','').replace(';','').replace(':','').lower().split()]
+import itertools
+def compareFiles(filename1, filename2):
+    with open(filename1, 'r', encoding='utf-8') as file1,  open(filename2, 'r', encoding='utf-8') as file2:
+        data1 = file1.readlines()
+        data2 = file2.readlines()
+    data1 = [ ''.join(c for c in x if not c.isspace() ) for x in data1 ]
+    data2 = [ ''.join(c for c in x if not c.isspace() ) for x in data2 ]
+    for n, (l1, l2) in enumerate(itertools.zip_longest(data1, data2)):
+        if l1 != l2:
+            print("Difference at line", n)
+            print("\t First  file: |" + l1 + "|")
+            print("\t Second file: |" + l2 + "|")
+            return False
 
+    return True
+# ===============================
 
-def write_file(word_counter, file_name):
-    with open(file_name, 'w') as file:
+def readData(file_name):
+    with open(file_name, 'r', encoding='utf-8') as datafile:
+        return datafile.read().split()
 
-        for (word, occurance) in word_counter.items():
-            file.write('{:15}{:3}\n'.format(word, occurance))
 
 #! Винесено за межі "if __name__ == '__main__':"
 # Щоб могти успадкувати WordsCount у кожному із субпроцесів
@@ -71,9 +94,9 @@ class WordsCount(parent_class):
         self.words_list = words_list
 
     def run(self):
-
         local_dict = {}
         for word in self.words_list:
+            word = cleanWord(word)
             if word not in local_dict:
                 local_dict[word] = 1
             else:
@@ -89,7 +112,7 @@ class WordsCount(parent_class):
 
 if __name__ == '__main__':
 
-    input_list = read_file('text1.txt')
+    input_list = readData(infile)
     threads = []
 
     avg = len(input_list) / number_of_threads
@@ -113,6 +136,10 @@ if __name__ == '__main__':
     else:
         print('Got {} processes in {} seconds'.format(len(threads), work_time))
 
-    print(WordsCount.word_counter)
-    write_file(WordsCount.word_counter, 'result.txt')
+    write_sorted_by_key(WordsCount.word_counter,   out_by_a)
+    write_sorted_by_value(WordsCount.word_counter, out_by_n)
 
+    are_correct = True
+    if etalon_a_file:
+        are_correct = compareFiles(out_by_a, etalon_a_file);
+    exit(not are_correct)

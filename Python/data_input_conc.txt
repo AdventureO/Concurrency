@@ -16,4 +16,4 @@ measurement_flags = 7
 
 # t -- threads
 # p -- processes
-python_flags=p
+python_flags=t
