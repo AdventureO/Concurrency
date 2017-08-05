@@ -81,6 +81,7 @@ public:
 
     size_t size() const
     {
+        lock_guard<mutex> lg(mtx);
         return que.size();
     }
 
