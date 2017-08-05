@@ -77,6 +77,7 @@ public:
 
     size_t size() const
     {
+        QMutexLocker luk(&mtx);
         return que.size();
     }
 
