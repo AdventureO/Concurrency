@@ -123,7 +123,7 @@ void ReadingThread::run()
             QString word;
             in >> word;
             words.append(move(word));
-            if (words.size() == blockSize) {
+            if (static_cast<size_t>(words.size()) == blockSize) { // Cast to avoid compiler warnign
                 blocksQue.enque(move(words));
                 words.clear();
             }
