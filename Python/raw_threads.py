@@ -40,8 +40,8 @@ def compareFiles(filename1, filename2):
     for n, (l1, l2) in enumerate(itertools.zip_longest(data1, data2)):
         if l1 != l2:
             print("Difference at line", n)
-            print("\t First  file: |" + l1 + "|")
-            print("\t Second file: |" + l2 + "|")
+            print("\t First  file: |" + str(l1) + "|")
+            print("\t Second file: |" + str(l2) + "|")
             return False
 
     return True
@@ -74,6 +74,8 @@ if 't' in python_flags:
 elif 'p' in python_flags:
     parent_class = multiprocessing.Process
     lock_type = multiprocessing.Lock()
+    # manager = multiprocessing.Manager()
+    # word_counter = manager.dict()
 else:
     raise Exception('Neither threads no processes concurrency selected')
 
@@ -81,16 +83,14 @@ number_of_threads = threads_n
 
 
 class WordsCount(parent_class):
-
-    word_counter = {}
-    lock = lock_type
-
     # lock = multiprocessing.Lock()
     # lock = threading.Lock()
 
-    def __init__(self, words_list):
+    def __init__(self, words_list, word_counter, lock):
         super().__init__()
         self.words_list = words_list
+        self.word_counter = word_counter
+        self.lock = lock
 
     def run(self):
         local_dict = {}
@@ -101,15 +101,22 @@ class WordsCount(parent_class):
             else:
                 local_dict[word] += 1
 
-        with WordsCount.lock:
+        with self.lock:
             for i in local_dict.keys():
-                if i in WordsCount.word_counter.keys():
-                    WordsCount.word_counter[i] += local_dict[i]
-
+                if i in self.word_counter.keys():
+                    self.word_counter[i] += local_dict[i]
                 else:
-                    WordsCount.word_counter[i] = local_dict[i]
+                    self.word_counter[i] = local_dict[i]
 
 if __name__ == '__main__':
+
+    if 't' in python_flags:
+        word_counter = {}
+    elif 'p' in python_flags:
+        manager = multiprocessing.Manager()
+        word_counter = manager.dict()
+    else:
+        raise Exception('Neither threads no processes concurrency selected')
 
     input_list = readData(infile)
     threads = []
@@ -118,7 +125,7 @@ if __name__ == '__main__':
     last = 0
 
     while last < len(input_list):
-        threads.append(WordsCount(input_list[int(last):int(last + avg)]))
+        threads.append(WordsCount(input_list[int(last):int(last + avg)], word_counter, lock_type))
         last += avg
 
     start_time = time()
@@ -135,8 +142,8 @@ if __name__ == '__main__':
     else:
         print('Got {} processes in {} seconds'.format(len(threads), work_time))
 
-    write_sorted_by_key(WordsCount.word_counter,   out_by_a)
-    write_sorted_by_value(WordsCount.word_counter, out_by_n)
+    write_sorted_by_key(word_counter,   out_by_a)
+    write_sorted_by_value(word_counter, out_by_n)
 
     are_correct = True
     if etalon_a_file:
