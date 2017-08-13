@@ -1,50 +1,10 @@
 import threading
 import multiprocessing
-from time import time
+import time
 
-def cleanWord(word):
-    word = ''.join(x.lower() for x in word if x.isalnum())
-    return word;
-# ===============================
-def read_config(filename):
-    res = {}
-    with open(filename, 'r', encoding='utf-8') as conf_file:
-        for line in conf_file:
-            line = line.split('#',1)[0].strip() # Remove comments
-            if not line:
-                continue
-            name,val = (x.strip().strip('\"') for x in line.split('=', 1))
-            res[name] = val
-        return res
+from aux_tools import *
+from clean_words import *
 
-def write_sorted_by_key(word_counter, file_name):
-    with open(file_name, 'w', encoding='utf-8') as file:
-        for (word, occurance) in sorted(word_counter.items()):
-            if word:
-                file.write('{:15}:{:3}\n'.format(word, occurance))
-
-import operator
-def write_sorted_by_value(word_counter, file_name):
-    with open(file_name, 'w', encoding='utf-8') as file:
-        for (word, occurance) in sorted(word_counter.items(), key=operator.itemgetter(1)):  # key=lambda x: x[1]
-            if word:
-                file.write('{:15}:{:3}\n'.format(word, occurance))
-
-import itertools
-def compareFiles(filename1, filename2):
-    with open(filename1, 'r') as file1,  open(filename2, 'r') as file2:
-        data1 = file1.readlines()
-        data2 = file2.readlines()
-    data1 = [ ''.join(c for c in x if not c.isspace() ) for x in data1 ]
-    data2 = [ ''.join(c for c in x if not c.isspace() ) for x in data2 ]
-    for n, (l1, l2) in enumerate(itertools.zip_longest(data1, data2)):
-        if l1 != l2:
-            print("Difference at line", n)
-            print("\t First  file: |" + str(l1) + "|")
-            print("\t Second file: |" + str(l2) + "|")
-            return False
-
-    return True
 # ===============================
 
 # Лише ASCII -- тому решта символів просто ігноруємо
@@ -118,9 +78,13 @@ if __name__ == '__main__':
     else:
         raise Exception('Neither threads no processes concurrency selected')
 
-    input_list = readData(infile)
-    threads = []
+    start_time = (time.perf_counter(), time.process_time())
 
+    input_list = readData(infile)
+
+    start_anal_time = (time.perf_counter(), time.process_time())
+    
+    threads = []
     avg = len(input_list) / number_of_threads
     last = 0
 
@@ -128,19 +92,21 @@ if __name__ == '__main__':
         threads.append(WordsCount(input_list[int(last):int(last + avg)], word_counter, lock_type))
         last += avg
 
-    start_time = time()
-
     for thread in threads:
         thread.start()
 
     for thread in threads:
         thread.join()
 
-    work_time = time() - start_time
-    if 't' in python_flags:
-        print('Got {} threads in {} seconds'.format(len(threads), work_time))
-    else:
-        print('Got {} processes in {} seconds'.format(len(threads), work_time))
+    finish_time = (time.perf_counter(), time.process_time())
+
+    print( 'Total:' )
+    print( 'Wall time: {0}'.format(finish_time[0] - start_time[0]) )
+    print( 'Process total time: {0}'.format(finish_time[1] - start_time[1]) )
+
+    print( 'Analisys:' )
+    print( 'Wall time: {0}'.format(start_anal_time[0] - start_time[0]) )
+    print( 'Process total time: {0}'.format(start_anal_time[1] - start_time[1]) )
 
     write_sorted_by_key(word_counter,   out_by_a)
     write_sorted_by_value(word_counter, out_by_n)
