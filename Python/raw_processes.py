@@ -57,6 +57,9 @@ if __name__ == '__main__':
     last = 0
 
     while last < len(input_list):
+        #!!! Варіант із парою індексів багато повільніший! Менеджер явно халтурить!
+        # Таке враження, що замість скористатися спільною пам'яттю,
+        # він копіює. При чому, час на копіювання -- захмарний. Кілька мегабайт не мають копіюватися хвилинами...
         # processes.append( multiprocessing.Process(target = WordsCount, args = (in_data[int(last):int(last + avg)], int(last), int(last + avg), word_counter, lock) ) )
         processes.append( multiprocessing.Process(target = WordsCount, args = (input_list, int(last), int(last + avg), word_counter, lock) ) )        
         last += avg
