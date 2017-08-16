@@ -13,7 +13,3 @@ etalon_a_file = "res_a_etalon.txt"
 # 4 -- CPU_MSM
 # For example, 1 -- measure only times, 7 -- measure all
 measurement_flags = 7
-
-# t -- threads
-# p -- processes
-python_flags=t
