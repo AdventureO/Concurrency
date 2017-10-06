@@ -1,39 +1,47 @@
 import MySQLdb
 import os
 
-# Read file
+result_conf = []
+
+def addSize():
+    statinfo = os.stat('data.txt')
+    result_conf.append(statinfo.st_size)
+
 def readFile(filename):
     with open(filename) as f:
         content = f.readlines()
     return content
 
-# Read from file and return experiment info
+
 def config():
-    result_conf = []
     for a in readFile("data_input_conc.txt"):
-        if "size" in a or "type_of_conc" in a or "threads" in a or "blockSize" in a:
+        if "threads" in a or "blockSize" in a:
             a = a.replace('\n', "").split("=")
             result_conf.append(a[1])
     return result_conf
 
-# Run program n times and return results of analisys
-def results(times):
-    times = 0
+
+def results():
+    r = 0
     result_arr = []
-    while times != 5:
+    while r != 5:
         tmp = []
         os.system("/home/oleksandr/PyCharm/PycharmProjects/AILab/RawThreads")
 
         for i in readFile("result.txt"):
             i = i.replace(" ", "").replace('\n', "").split(":")
-            tmp.append(i[1])
-            print(i)
+            if "TypeofConcurrency" in i:
+                if len(result_conf) == 1:
+                    continue
+                else:
+                    result_conf.append(i[1])
+            else:
+                tmp.append(i[1])
             open("result.txt", 'w').close()
-
         result_arr.append(tmp)
-        times += 1
-
+        r += 1
     return result_arr
+
 
 # Inserts into Experiment database experiment parameters
 def insertExperiment(list_of_arg, cursor, db):
@@ -49,12 +57,14 @@ def insertExperiment(list_of_arg, cursor, db):
 # Select all experiments from Experiment database
 def selectAllExperiment(cursor):
    sql = "SELECT * FROM Experiment"
+   experiments = []
 
    try:
       cursor.execute(sql)
       results = cursor.fetchall()
 
       for row in results:
+         experiments.append(row)
          id = row[0]
          concurrency_method = row[1]
          file_size = row[2]
@@ -64,6 +74,7 @@ def selectAllExperiment(cursor):
    except:
       print("Error: unable to fetch data")
 
+   return experiments
 # Select all experiments from AnalisysResult database
 def selectAllAnalisysResult(cursor):
    sql = "SELECT * FROM AnalisysResult"
@@ -123,6 +134,23 @@ def get_average_min(experiment_id, cursor):
     print("Process total page faults min: {0}, average: {1}".format(min(process_total_page_faults), sum(process_total_page_faults)/len(process_total_page_faults)))
     print("Process total context switches min: {0}, average: {1}".format(min(process_total_context_switches), sum(process_total_context_switches)/len(process_total_context_switches)))
 
+
+# def get_all_average_min(type_of_concurrency, cursor):
+#
+#     sql = "SELECT id FROM Experiment WHERE type_of_concurrency =" + str(type_of_concurrency)
+#     experiments = selectAllExperiment(cursor)
+#
+#     try:
+#     cursor.execute(sql)
+#     results = cursor.fetchall()
+#
+#     #     print(results())
+#     #     for row in results:
+#     #         print(row)
+#     #         experiments_ids.append(row[0])
+#     #
+#     # except:
+#     #     print("Error: unable to fetch data")
 # Connects to database and makes some manipulations
 def main():
    # Open database connection
@@ -137,9 +165,20 @@ def main():
    # selectAllExperiment(cursor)
    # insertAnalisysResult(b, cursor, db)
 
+   a = results()
+   addSize()
+   #
+   insertExperiment(config(), cursor, db)
+   insertAnalisysResult(a, cursor, db)
+   # selectAllAnalisysResult(cursor)
+   # #get_average_min(16, cursor)
+   #
+   selectAllExperiment(cursor)
+   print("==========================")
    selectAllAnalisysResult(cursor)
-   get_average_min(16, cursor)
-
+   print("==========================")
+   get_average_min(18, cursor)
+   # get_all_average_min("RawThreads", cursor)
    #(cursor, db)
    # disconnect from server
    db.close()
