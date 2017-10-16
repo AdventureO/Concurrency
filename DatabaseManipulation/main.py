@@ -1,10 +1,11 @@
 import MySQLdb
 import os
+import matplotlib.pyplot as plt
 
 result_conf = []
 
-def addSize():
-    statinfo = os.stat('data.txt')
+def addSize(file):
+    statinfo = os.stat(file)
     result_conf.append(statinfo.st_size)
 
 def readFile(filename):
@@ -21,12 +22,12 @@ def config():
     return result_conf
 
 
-def results():
+def results(path):
     r = 0
     result_arr = []
     while r != 5:
         tmp = []
-        os.system("/home/oleksandr/PyCharm/PycharmProjects/AILab/RawThreads")
+        os.system(path)
 
         for i in readFile("result.txt"):
             i = i.replace(" ", "").replace('\n', "").split(":")
@@ -129,11 +130,62 @@ def get_average_min(experiment_id, cursor):
     except:
         print("Error: unable to fetch data")
 
-    print("Wall time min: {0}, average: {1}".format(min(wall_time), sum(wall_time)/len(wall_time)))
-    print("Process total time min: {0}, average: {1}".format(min(process_total_time), sum(process_total_time)/len(process_total_time)))
-    print("Process total page faults min: {0}, average: {1}".format(min(process_total_page_faults), sum(process_total_page_faults)/len(process_total_page_faults)))
-    print("Process total context switches min: {0}, average: {1}".format(min(process_total_context_switches), sum(process_total_context_switches)/len(process_total_context_switches)))
+    wall_time = [ min(wall_time), sum(wall_time)/len(wall_time) ]
+    process_total_time = [ min(process_total_time), sum(process_total_time)/len(process_total_time) ]
+    process_total_page_faults = [ min(process_total_page_faults), sum(process_total_page_faults)/len(process_total_page_faults) ]
+    process_total_context_switches = [ min(process_total_context_switches), sum(process_total_context_switches)/len(process_total_context_switches)]
 
+    print("Wall time min: {0}, average: {1}".format(wall_time[0], wall_time[1]))
+    print("Process total time min: {0}, average: {1}".format(process_total_time[0], process_total_time[1]))
+    print("Process total page faults min: {0}, average: {1}".format(process_total_page_faults[0], process_total_page_faults[1]))
+    print("Process total context switches min: {0}, average: {1}".format(process_total_context_switches[0], process_total_context_switches[1]))
+    print("------------------------------------------------------------------------------------------")
+
+    return wall_time, process_total_time, process_total_page_faults, process_total_context_switches
+
+
+def plot_graphic(rt_id, fp_id, a_id, cursor):
+
+    # fp_data = get_average_min(fp_id, cursor)
+    # a_data = get_average_min(a_id, cursor)
+
+    rt_data_100KB = get_average_min(rt_id[0], cursor)
+    rt_data_1MB = get_average_min(rt_id[1], cursor)
+    rt_data_10MB = get_average_min(rt_id[2], cursor)
+    rt_data_50MB = get_average_min(rt_id[3], cursor)
+
+    fp_data_100KB = get_average_min(fp_id[0], cursor)
+    fp_data_1MB = get_average_min(fp_id[1], cursor)
+    fp_data_10MB = get_average_min(fp_id[2], cursor)
+    fp_data_50MB = get_average_min(fp_id[3], cursor)
+
+    a_data_100KB = get_average_min(a_id[0], cursor)
+    a_data_1MB = get_average_min(a_id[1], cursor)
+    a_data_10MB = get_average_min(a_id[2], cursor)
+    a_data_50MB = get_average_min(a_id[3], cursor)
+
+
+    byte = 102400
+    data_size = [102400, 1048576, 10485760, 104857600] # 100KB, 1MB, 10MB, 50MB
+
+    time_per_byte_rt = [rt_data_100KB[0][0]/byte, rt_data_1MB[0][0]/byte, rt_data_10MB[0][0]/byte, rt_data_50MB[0][0]/byte]
+    time_per_byte_fp = [fp_data_100KB[0][0]/byte, fp_data_1MB[0][0]/byte, fp_data_10MB[0][0]/byte, fp_data_50MB[0][0]/byte]
+    time_per_byte_a = [a_data_100KB[0][0]/byte, a_data_1MB[0][0]/byte, a_data_10MB[0][0]/byte, a_data_50MB[0][0]/byte]
+
+    print(time_per_byte_rt)
+    print(time_per_byte_fp)
+    print(time_per_byte_a)
+
+
+    plt.plot(time_per_byte_rt, data_size, 'b', time_per_byte_fp, data_size, 'r', time_per_byte_a, data_size, 'g')
+
+    plt.ylabel('time (s)/ 1 byte')
+    plt.xlabel('Data size (Byte)')
+    plt.title('Wall time')
+    plt.grid(True)
+    plt.show()
+    #
+    # plt.show()
 
 # def get_all_average_min(type_of_concurrency, cursor):
 #
@@ -153,35 +205,49 @@ def get_average_min(experiment_id, cursor):
 #     #     print("Error: unable to fetch data")
 # Connects to database and makes some manipulations
 def main():
-   # Open database connection
-   db = MySQLdb.connect("localhost","root","oles0033","ConcurrencyResearch" )
+    # Open database connection
+    db = MySQLdb.connect("localhost","root","oles0033","ConcurrencyResearch" )
 
-   # prepare a cursor object using cursor() method
-   cursor = db.cursor()
+    # prepare a cursor object using cursor() method
+    cursor = db.cursor()
 
-   # a = config()
-   # b = results()
-   # insertExperiment(a, cursor, db)
-   # selectAllExperiment(cursor)
-   # insertAnalisysResult(b, cursor, db)
+    path = "/home/oleksandr/PyCharm/PycharmProjects/AILab/Async"
+    # paths= ["RawThreads", "FuturePromise", "Async"]
+    # a = config()
+    # b = results()
+    # insertExperiment(a, cursor, db)
+    # selectAllExperiment(cursor)
+    # insertAnalisysResult(b, cursor, db)
 
-   a = results()
-   addSize()
-   #
-   insertExperiment(config(), cursor, db)
-   insertAnalisysResult(a, cursor, db)
-   # selectAllAnalisysResult(cursor)
-   # #get_average_min(16, cursor)
-   #
-   selectAllExperiment(cursor)
-   print("==========================")
-   selectAllAnalisysResult(cursor)
-   print("==========================")
-   get_average_min(18, cursor)
-   # get_all_average_min("RawThreads", cursor)
-   #(cursor, db)
-   # disconnect from server
-   db.close()
+
+    # for i in paths:
+    #     path += i
+    #     a = results(path)
+    #     addSize()
+    #     insertExperiment(config(), cursor, db)
+    #     insertAnalisysResult(a, cursor, db)
+
+    # a = results(path)
+    # addSize('data50MB.txt')
+    # insertExperiment(config(), cursor, db)
+    # insertAnalisysResult(a, cursor, db)
+    #
+    # # selectAllAnalisysResult(cursor)
+    # # get_average_min(16, cursor)
+    #
+    # selectAllExperiment(cursor)
+    # print("==========================")
+    # selectAllAnalisysResult(cursor)
+    # print("==========================")
+
+    # print("-----------------------------------------")
+    plot_graphic([27, 28, 29, 30],[31, 32, 33, 34],[35, 36, 37, 38], cursor)
+
+    # get_all_average_min("RawThreads", cursor)
+    #(c  ursor, db)
+    # disconnect from server
+
+    db.close()
 
 
 main()
