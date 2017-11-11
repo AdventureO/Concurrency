@@ -1,6 +1,11 @@
 import MySQLdb
 import os
-import matplotlib.pyplot as plt
+from tempfile import mkstemp
+from shutil import move
+from os import fdopen, remove
+from database_manipulations import insertExperiment, insertAnalisysResult, \
+    selectAllExperiment, selectAllAnalisysResult
+from plot_graphic import plot_graphics
 
 result_conf = []
 
@@ -43,167 +48,38 @@ def results(path):
         r += 1
     return result_arr
 
+def replace_config(file_path, file_name):
+    #Create temp file
+    fh, abs_path = mkstemp()
+    with fdopen(fh,'w') as new_file:
+        with open(file_path) as old_file:
+            i = 0
+            for line in old_file:
+                if i == 1:
+                    new_file.write('infile = "data_files/' + file_name + '"\n')
+                else:
+                    new_file.write(line)
 
-# Inserts into Experiment database experiment parameters
-def insertExperiment(list_of_arg, cursor, db):
-    sql = """INSERT INTO Experiment (type_of_concurrency, file_size, threads_number, block_size)
-    VALUES ('%s', '%f', '%d', '%d' )""" %  (list_of_arg[0], float(list_of_arg[1]), int(list_of_arg[2]), int(list_of_arg[3]))
-    try:
-       cursor.execute(sql)
-       db.commit()
-    except:
-       # Rollback in case there is any error
-       db.rollback()
+                i += 1
 
-# Select all experiments from Experiment database
-def selectAllExperiment(cursor):
-   sql = "SELECT * FROM Experiment"
-   experiments = []
-
-   try:
-      cursor.execute(sql)
-      results = cursor.fetchall()
-
-      for row in results:
-         experiments.append(row)
-         id = row[0]
-         concurrency_method = row[1]
-         file_size = row[2]
-         threads_number = row[3]
-         block_size = row[4]
-         print(id, concurrency_method, file_size, threads_number, block_size)
-   except:
-      print("Error: unable to fetch data")
-
-   return experiments
-# Select all experiments from AnalisysResult database
-def selectAllAnalisysResult(cursor):
-   sql = "SELECT * FROM AnalisysResult"
-
-   try:
-      cursor.execute(sql)
-      results = cursor.fetchall()
-
-      for row in results:
-         id = row[0]
-         experiment_id = row[1]
-         wall_time = row[2]
-         process_total_time = row[3]
-         process_total_page_faults = row[4]
-         process_total_context_switches = row[5]
-         print(id, experiment_id, wall_time, process_total_time, process_total_page_faults, process_total_context_switches)
-   except:
-      print("Error: unable to fetch data")
-
-# Inserts result of program (analisys) into database
-def insertAnalisysResult(list_of_arg, cursor, db):
-   sql = """SELECT * FROM Experiment WHERE id=(SELECT MAX(id) FROM Experiment);"""
-   cursor.execute(sql)
-   id = [row[0] for row in  cursor.fetchall()]
-
-   for i in list_of_arg:
-      sql = """INSERT INTO AnalisysResult (experiment_id, wall_time, process_total_time, process_total_page_faults,
-               process_total_context_switches) VALUES ('%d', '%d', '%d', '%d', '%d')""" \
-               % (int(id[0]), int(i[0]), int(i[1]), int(i[2]), int(i[3]))
-
-      cursor.execute(sql)
-      db.commit()
-
-# Return the average and minimum value of experiment
-def get_average_min(experiment_id, cursor):
-    sql = "SELECT * FROM AnalisysResult WHERE experiment_id = " + str(experiment_id)
-
-    wall_time = []
-    process_total_time = []
-    process_total_page_faults = []
-    process_total_context_switches = []
-
-    try:
-        cursor.execute(sql)
-        results = cursor.fetchall()
-
-        for row in results:
-            wall_time.append(row[2])
-            process_total_time.append(row[3])
-            process_total_page_faults.append(row[4])
-            process_total_context_switches.append(row[5])
-    except:
-        print("Error: unable to fetch data")
-
-    wall_time = [ min(wall_time), sum(wall_time)/len(wall_time) ]
-    process_total_time = [ min(process_total_time), sum(process_total_time)/len(process_total_time) ]
-    process_total_page_faults = [ min(process_total_page_faults), sum(process_total_page_faults)/len(process_total_page_faults) ]
-    process_total_context_switches = [ min(process_total_context_switches), sum(process_total_context_switches)/len(process_total_context_switches)]
-
-    print("Wall time min: {0}, average: {1}".format(wall_time[0], wall_time[1]))
-    print("Process total time min: {0}, average: {1}".format(process_total_time[0], process_total_time[1]))
-    print("Process total page faults min: {0}, average: {1}".format(process_total_page_faults[0], process_total_page_faults[1]))
-    print("Process total context switches min: {0}, average: {1}".format(process_total_context_switches[0], process_total_context_switches[1]))
-    print("------------------------------------------------------------------------------------------")
-
-    return wall_time, process_total_time, process_total_page_faults, process_total_context_switches
+    #Remove original file
+    remove(file_path)
+    #Move new file
+    move(abs_path, file_path)
 
 
-def plot_graphic(rt_id, fp_id, a_id, cursor):
+def run_program(execute_file, cursor, db):
 
-    # fp_data = get_average_min(fp_id, cursor)
-    # a_data = get_average_min(a_id, cursor)
+    file_names = ['data_1MB.txt', 'data_2MB.txt', 'data_4MB.txt', 'data_8MB.txt', 'data_16MB.txt', 'data_32MB.txt',
+                  'data_64MB.txt', 'data_128MB.txt', 'data_256MB.txt', 'data_512MB.txt']
+    for file in file_names:
 
-    rt_data_100KB = get_average_min(rt_id[0], cursor)
-    rt_data_1MB = get_average_min(rt_id[1], cursor)
-    rt_data_10MB = get_average_min(rt_id[2], cursor)
-    rt_data_50MB = get_average_min(rt_id[3], cursor)
+        replace_config('data_input_conc.txt', file)
+        result = results(execute_file)
+        addSize('data_files/' + file)
+        insertExperiment(config(), cursor, db)
+        insertAnalisysResult(result, cursor, db)
 
-    fp_data_100KB = get_average_min(fp_id[0], cursor)
-    fp_data_1MB = get_average_min(fp_id[1], cursor)
-    fp_data_10MB = get_average_min(fp_id[2], cursor)
-    fp_data_50MB = get_average_min(fp_id[3], cursor)
-
-    a_data_100KB = get_average_min(a_id[0], cursor)
-    a_data_1MB = get_average_min(a_id[1], cursor)
-    a_data_10MB = get_average_min(a_id[2], cursor)
-    a_data_50MB = get_average_min(a_id[3], cursor)
-
-
-    byte = 102400
-    data_size = [102400, 1048576, 10485760, 104857600] # 100KB, 1MB, 10MB, 50MB
-
-    time_per_byte_rt = [rt_data_100KB[0][0]/byte, rt_data_1MB[0][0]/byte, rt_data_10MB[0][0]/byte, rt_data_50MB[0][0]/byte]
-    time_per_byte_fp = [fp_data_100KB[0][0]/byte, fp_data_1MB[0][0]/byte, fp_data_10MB[0][0]/byte, fp_data_50MB[0][0]/byte]
-    time_per_byte_a = [a_data_100KB[0][0]/byte, a_data_1MB[0][0]/byte, a_data_10MB[0][0]/byte, a_data_50MB[0][0]/byte]
-
-    print(time_per_byte_rt)
-    print(time_per_byte_fp)
-    print(time_per_byte_a)
-
-
-    plt.plot(time_per_byte_rt, data_size, 'b', time_per_byte_fp, data_size, 'r', time_per_byte_a, data_size, 'g')
-
-    plt.ylabel('time (s)/ 1 byte')
-    plt.xlabel('Data size (Byte)')
-    plt.title('Wall time')
-    plt.grid(True)
-    plt.show()
-    #
-    # plt.show()
-
-# def get_all_average_min(type_of_concurrency, cursor):
-#
-#     sql = "SELECT id FROM Experiment WHERE type_of_concurrency =" + str(type_of_concurrency)
-#     experiments = selectAllExperiment(cursor)
-#
-#     try:
-#     cursor.execute(sql)
-#     results = cursor.fetchall()
-#
-#     #     print(results())
-#     #     for row in results:
-#     #         print(row)
-#     #         experiments_ids.append(row[0])
-#     #
-#     # except:
-#     #     print("Error: unable to fetch data")
-# Connects to database and makes some manipulations
 def main():
     # Open database connection
     db = MySQLdb.connect("localhost","root","oles0033","ConcurrencyResearch" )
@@ -211,89 +87,21 @@ def main():
     # prepare a cursor object using cursor() method
     cursor = db.cursor()
 
-    path = "/home/oleksandr/PyCharm/PycharmProjects/AILab/Async"
-    # paths= ["RawThreads", "FuturePromise", "Async"]
-    # a = config()
-    # b = results()
-    # insertExperiment(a, cursor, db)
-    # selectAllExperiment(cursor)
-    # insertAnalisysResult(b, cursor, db)
+    path = "/home/oleksandr/CLIon/CLionProjects/cxx/gcc5/"
 
 
-    # for i in paths:
-    #     path += i
-    #     a = results(path)
-    #     addSize()
-    #     insertExperiment(config(), cursor, db)
-    #     insertAnalisysResult(a, cursor, db)
+    #run_program(path + 'Async', cursor, db)
 
-    # a = results(path)
-    # addSize('data50MB.txt')
-    # insertExperiment(config(), cursor, db)
-    # insertAnalisysResult(a, cursor, db)
-    #
-    # # selectAllAnalisysResult(cursor)
-    # # get_average_min(16, cursor)
-    #
-    # selectAllExperiment(cursor)
-    # print("==========================")
+
+    selectAllExperiment(cursor)
+
     # selectAllAnalisysResult(cursor)
-    # print("==========================")
-
-    # print("-----------------------------------------")
-    plot_graphic([27, 28, 29, 30],[31, 32, 33, 34],[35, 36, 37, 38], cursor)
-
-    # get_all_average_min("RawThreads", cursor)
-    #(c  ursor, db)
-    # disconnect from server
+    plot_graphics([i for i in range(234, 244)],
+                 [i for i in range(342, 352)],
+                 [i for i in range(352, 362)],
+                 cursor)
 
     db.close()
 
-
 main()
 
-
-# def deleteAllData():
-#    sql = "DELETE FROM AnalisysResult"
-#    cursor.execute(sql)
-#    db.commit()
-#
-#    sql = "DELETE FROM Experiment"
-#    cursor.execute(sql)
-#    db.commit()
-
-# Delete tables
-# sql = """Drop table if exists Experiment"""
-# cursor.execute(sql)
-
-# sql = """Drop table if exists AnalisysResult"""
-# cursor.execute(sql)
-
-# Create tables
-# experiment_table = """create table if not exists Experiment (
-#   id int unsigned not null auto_increment,
-#   type_of_concurrency varchar(100),
-#   file_size float,
-#   threads_number int,
-#   block_size int,
-#   primary key(id)
-# );"""
-#
-# analisys_result_table = """create table if not exists AnalisysResult (
-#   id int unsigned not null auto_increment,
-#   experiment_id int unsigned not null,
-#   wall_time int,
-#   process_total_time int,
-#   process_total_page_faults int,
-#   process_total_context_switches int,
-#   index experiment_index(experiment_id),
-#   foreign key (experiment_id) references Experiment(id) on delete cascade,
-#   primary key(id)
-# );"""
-#
-# cursor.execute(experiment_table)
-# cursor.execute(analisys_result_table)
-
-#Create Database
-#cursor.execute("CREATE DATABASE IF NOT EXISTS ConcurrencyResearch")
-#print("DB created successfully")
