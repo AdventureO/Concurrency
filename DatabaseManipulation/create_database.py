@@ -28,6 +28,7 @@ def create_tables(name_of_database):
       file_size float,
       threads_number int,
       block_size int,
+      compiler varchar(100),
       primary key(id)
     );"""
 
@@ -66,4 +67,6 @@ def delete_all_data(name_of_database):
     cursor.execute(sql)
     db.commit()
     db.close()
+
     print("All data deleted successfully")
+

@@ -1,7 +1,7 @@
 # Inserts into Experiment database experiment parameters
 def insertExperiment(list_of_arg, cursor, db):
-    sql = """INSERT INTO Experiment (type_of_concurrency, file_size, threads_number, block_size)
-    VALUES ('%s', '%f', '%d', '%d' )""" %  (list_of_arg[0], float(list_of_arg[1]), int(list_of_arg[2]), int(list_of_arg[3]))
+    sql = """INSERT INTO Experiment (type_of_concurrency, file_size, threads_number, block_size, compiler)
+    VALUES ('%s', '%f', '%d', '%d', '%s')""" %  (list_of_arg[0], float(list_of_arg[1]), int(list_of_arg[2]), int(list_of_arg[3]), list_of_arg[4])
     try:
        cursor.execute(sql)
        db.commit()
@@ -25,7 +25,8 @@ def selectAllExperiment(cursor):
          file_size = row[2]
          threads_number = row[3]
          block_size = row[4]
-         print(id, concurrency_method, file_size, threads_number, block_size)
+         compiler = row[5]
+         print(id, concurrency_method, file_size, threads_number, block_size, compiler)
    except:
       print("Error: unable to fetch data")
 
@@ -101,3 +102,19 @@ def get_average_min(experiment_id, cursor):
     print("------------------------------------------------------------------------------------------")
 
     return wall_time, process_total_time, process_total_page_faults, process_total_context_switches
+
+def get_results_experiment(experiment_id, cursor):
+    sql = "SELECT * FROM AnalisysResult WHERE experiment_id = " + str(experiment_id)
+    wall_time = []
+
+    try:
+        cursor.execute(sql)
+        results = cursor.fetchall()
+
+        for row in results:
+            wall_time.append(row[2])
+    except:
+        print("Error: unable to fetch data")
+
+    return wall_time
+

@@ -25,8 +25,9 @@ def generate_block(rows, words_in_row, all_words):
     return block
 
 def generate_file():
-    words = get_all_words("english_words_10K.txt")
-    files = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    words = get_all_words("data_files/english_words_10K.txt")
+    #files = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    files = [0.5, 3, 5, 10, 20, 30, 40, 50, 70, 80, 90, 100]
     for i in range(len(files)):
         new_name = 'data_' + str(files[i]) + 'MB.txt'
         with open( new_name, 'w') as file:
