@@ -1,0 +1,16 @@
+# Comment. Spaces are allowed.
+infile = "data_files/data_512MB.txt"
+out_by_a="res_a.txt"
+out_by_n="res_n.txt"
+
+threads=5
+blockSize=7000
+
+etalon_a_file = "res_a_etalon.txt"
+
+# 0 -- None, or any sum of:
+# 1 -- BASE_MSM
+# 2 -- SYS_MSM
+# 4 -- CPU_MSM
+# For example, 1 -- measure only times, 7 -- measure all
+measurement_flags = 7
