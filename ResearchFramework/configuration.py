@@ -50,7 +50,7 @@ def results(path):
 
 
 def replace_config(file_path, file_name):
-    # Create temp file
+    # Create temporary file
     fh, abs_path = mkstemp()
     with fdopen(fh,'w') as new_file:
         with open(file_path) as old_file:
